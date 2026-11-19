@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>每日故事屋｜兒童中文故事影片</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#fbf6ec; --card:#fffdf8; --ink:#2b2622; --muted:#7a7068; --line:#e8dfd0;
+    --lv:#e0694c; --lv-soft:#fbe3da;
+  }
+  [data-level="k"]{--lv:#e0694c;--lv-soft:#fbe3da}
+  [data-level="p1"]{--lv:#d9932b;--lv-soft:#f8ead0}
+  [data-level="p2"]{--lv:#2f9a8a;--lv-soft:#d7efe9}
+  [data-level="m"]{--lv:#4f5fb8;--lv-soft:#e0e3f6}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:"Noto Sans TC",system-ui,sans-serif;line-height:1.6;
+    background-image:radial-gradient(circle at 1px 1px, rgba(120,100,70,.07) 1px, transparent 0);background-size:22px 22px}
+  .wrap{max-width:1040px;margin:0 auto;padding:28px 20px 60px}
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  h1{font-family:"LXGW WenKai TC",serif;font-size:34px;margin:0;letter-spacing:.04em}
+  h1 span{color:var(--lv);transition:color .3s}
+  .date{color:var(--muted);font-size:15px}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+  .tab{border:2px solid var(--line);background:var(--card);border-radius:16px;padding:12px 10px;cursor:pointer;text-align:left;
+    font:inherit;color:inherit;transition:all .2s}
+  .tab b{display:block;font-family:"LXGW WenKai TC",serif;font-size:20px}
+  .tab small{color:var(--muted);font-size:12.5px}
+  .tab:hover{border-color:var(--lv)}
+  .tab[aria-selected="true"]{border-color:var(--lv);background:var(--lv-soft);box-shadow:0 3px 0 var(--lv)}
+  .tab .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--lv);margin-right:6px}
+  .main{display:grid;grid-template-columns:1fr 300px;gap:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden}
+  .player-box{position:relative;aspect-ratio:16/9;background:#1f1b18}
+  .player-box iframe,#player{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .fallback{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    color:#fff;text-align:center;padding:20px;background-size:cover;background-position:center}
+  .fallback::before{content:"";position:absolute;inset:0;background:rgba(20,16,12,.6)}
+  .fallback>*{position:relative}
+  .fallback a{color:#fff;background:var(--lv);padding:8px 18px;border-radius:999px;text-decoration:none;font-weight:700}
+  .controls{display:flex;flex-wrap:wrap;gap:14px 24px;padding:14px 18px;border-bottom:1px solid var(--line);align-items:center}
+  .group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .group>label{font-size:13px;color:var(--muted);margin-right:2px}
+  .pill{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px;font:inherit;font-size:14px;cursor:pointer;color:inherit}
+  .pill:hover{border-color:var(--lv)}
+  .pill.on{background:var(--lv);border-color:var(--lv);color:#fff;font-weight:700}
+  .cc-status{font-size:12.5px;color:var(--muted);width:100%;margin-top:-6px}
+  .info{padding:16px 18px 20px}
+  .info h2{font-family:"LXGW WenKai TC",serif;font-size:24px;margin:0 0 4px;line-height:1.35}
+  .channel{color:var(--muted);font-size:14px;margin-bottom:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .chip{font-size:13px;padding:3px 10px;border-radius:8px;background:var(--lv-soft);color:var(--ink)}
+  .chip.pending{background:#f1ece4;color:var(--muted);border:1px dashed #cfc4b3}
+  .why{font-size:14.5px;background:#faf5ea;border-left:4px solid var(--lv);padding:10px 12px;border-radius:0 10px 10px 0;margin:0 0 14px}
+  .actions{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{border:0;border-radius:12px;padding:9px 16px;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .btn.primary{background:var(--lv);color:#fff}
+  .btn.ghost{background:#f3ede3;color:var(--ink)}
+  .btn.done{background:#4a9b5b;color:#fff}
+  aside h3{font-family:"LXGW WenKai TC",serif;font-size:19px;margin:16px 16px 8px}
+  .hist{list-style:none;margin:0;padding:0 10px 12px}
+  .hist li{display:flex;gap:10px;padding:8px 6px;border-radius:12px;cursor:pointer;align-items:center}
+  .hist li:hover{background:var(--lv-soft)}
+  .hist li.current{background:var(--lv-soft);outline:2px solid var(--lv)}
+  .thumb{width:96px;flex:none;aspect-ratio:16/9;border-radius:8px;background:#ddd center/cover}
+  .hist .t{font-size:13.5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .hist .d{font-size:12px;color:var(--muted)}
+  .hist .seen{color:#4a9b5b;font-size:12px;font-weight:700}
+  details{margin-top:20px}
+  summary{cursor:pointer;font-family:"LXGW WenKai TC",serif;font-size:19px;padding:14px 18px;list-style:none}
+  summary::before{content:"▸ ";color:var(--lv)}
+  details[open] summary::before{content:"▾ "}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:10px 14px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:#faf5ea;font-weight:700}
+  td .sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+  .note{font-size:13px;color:var(--muted);padding:12px 18px 16px;margin:0}
+  .warn{display:none;background:#fff4d6;border:1.5px solid #e9c46a;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:14px}
+  .warn code{background:#fff;padding:1px 6px;border-radius:6px}
+  .fallback .btn{position:relative}
+  footer{margin-top:24px;font-size:12.5px;color:var(--muted);text-align:center}
+  @media (max-width:820px){
+    .main{grid-template-columns:1fr}
+    .tabs{grid-template-columns:repeat(2,1fr)}
+    h1{font-size:28px}
+  }
+</style>
+</head>
+<body data-level="k">
+<div class="wrap">
+  <header>
+    <div>
+      <h1>每日<span>故事屋</span></h1>
+      <div class="date" id="date"></div>
+    </div>
+    <div class="date">每天每個年級一部故事，點開就能看</div>
+  </header>
+
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+
+  <div class="warn" id="fileWarn">
+    ⚠️ 你目前是直接開啟檔案。YouTube 會拒絕在這種情況下播放（錯誤 153）。
+    請把網頁放到 <b>GitHub Pages</b>，或在這個資料夾執行 <code>python3 -m http.server</code> 後打開 <code>http://localhost:8000</code>。
+  </div>
+  <div class="main">
+    <section class="card">
+      <div class="player-box">
+        <div id="player"></div>
+        <div class="fallback" id="fallback">
+          <div id="fallbackMsg">播放器沒有載入</div>
+          <a id="fallbackLink" href="#" target="_blank" rel="noopener">到 YouTube 觀看 ↗</a>
+          <button class="btn ghost" onclick="offset++;show(pickFor(level,0))">↻ 換一部</button>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="group" id="speedGroup">
+          <label>播放速度</label>
+        </div>
+        <div class="group" id="ccGroup">
+          <label>字幕</label>
+          <button class="pill" data-cc="off">關閉</button>
+          <button class="pill on" data-cc="zh">中文</button>
+          <button class="pill" data-cc="en">English</button>
+        </div>
+        <div class="cc-status" id="ccStatus">按下播放後會偵測這部影片有哪些字幕</div>
+      </div>
+      <div class="info">
+        <h2 id="vTitle"></h2>
+        <div class="channel" id="vChannel"></div>
+        <div class="chips" id="vChips"></div>
+        <p class="why" id="vWhy"></p>
+        <div class="actions">
+          <button class="btn primary" id="doneBtn">✓ 看完了</button>
+          <button class="btn ghost" id="swapBtn">↻ 換一部</button>
+          <a class="btn ghost" id="ytLink" href="#" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a>
+        </div>
+      </div>
+    </section>
+
+    <aside class="card">
+      <h3>最近的故事</h3>
+      <ul class="hist" id="hist"></ul>
+    </aside>
+  </div>
+
+  <details class="card">
+    <summary>分級標準</summary>
+    <table>
+      <thead><tr><th>級別</th><th>語速（字／分鐘）</th><th>適合主題與片長</th></tr></thead>
+      <tbody id="rules"></tbody>
+    </table>
+    <p class="note">成人語速約 180 字／分鐘以上，不列入選片範圍。之後 skill 會依據逐字稿計算實際語速，再配合主題、片長判斷級別。</p>
+  </details>
+
+  <footer>原型版本：影片由人工挑選示範，「實測語速」欄位待 skill 分析逐字稿後填入。</footer>
+</div>
+
+<script>
+/* ===== 分級設定 ===== */
+const LEVELS = [
+  {id:"k",  name:"幼兒園",    rate:"100–120", topic:"繪本動畫、生活習慣、情緒故事", len:"3–10 分鐘", tone:"語氣柔和、停頓較多", color:"#e0694c"},
+  {id:"p1", name:"國小 1–3", rate:"120–140", topic:"伊索寓言、簡單成語故事、童話", len:"3–12 分鐘", tone:"句子短、情節單純", color:"#d9932b"},
+  {id:"p2", name:"國小 4–6", rate:"120–140", topic:"寓言合集、成語典故、歷史人物", len:"5–15 分鐘", tone:"詞彙較豐富", color:"#2f9a8a"},
+  {id:"m",  name:"中學 1–3", rate:"140–180", topic:"成語出處、經典寓言、歷史故事", len:"5–20 分鐘", tone:"語速快、含文言詞彙", color:"#4f5fb8"},
+];
+
+/* ===== 影片資料（之後由 skill 每天產生 daily.json 取代）===== */
+const POOL = {
+  k: [
+    {id:"IP9TPSwStZw", title:"佳佳老師說故事 EP171《我想大聲說》", channel:"佳佳老師說故事", topic:"繪本・勇敢表達", why:"主角有話說不出口，適合和孩子聊「怎麼把心裡的話說出來」。"},
+    {id:"repvqzwg90E", title:"有聲繪本《莎娜的紅毛衣》", channel:"格子酱讲绘本", topic:"繪本・想像力", why:"頻道標示適讀 3 歲以上；朋友一起想辦法把毛衣變大，情節溫暖。"},
+    {id:"o-luyxcs9P4", title:"有聲繪本《蚯蚓的天空》", channel:"格子酱讲绘本", topic:"繪本・探索", why:"小蚯蚓雨後出門探險，節奏慢，適合睡前。"},
+    {id:"VjYUtUaimVs", title:"有聲繪本《肚子裏的小人》", channel:"格子酱讲绘本", topic:"繪本・好好吃飯", why:"頻道標示 2～6 歲適讀，用想像力讓孩子明白要好好吃飯。"},
+  ],
+  p1: [
+    {id:"IU1-PxQ2bvQ", title:"伊索寓言《報恩的小螞蟻》", channel:"碰碰狐 鯊魚寶寶", topic:"寓言・感恩", why:"經典伊索寓言，角色少、因果清楚，低年級容易理解。"},
+    {id:"zhmblIaQFM0", title:"成語故事合集｜5 個成語 10 分鐘", channel:"洪恩 Global", topic:"成語・入門", dur:"約 10 分鐘", why:"井底之蛙、守株待兔等入門成語，每則約 2 分鐘。"},
+    {id:"V5sQLMRWK8o", title:"烏鴉喝水", channel:"FOOD超人", topic:"寓言・動腦解決問題", why:"短小的經典故事，看完可以問孩子：烏鴉為什麼能喝到水？"},
+    {id:"5ZF0MrvcdE8", title:"聽聽成語故事 01【杯弓蛇影】", channel:"momokids 親子台", topic:"成語・短劇", why:"真人短劇加動畫，介紹成語由來。"},
+  ],
+  p2: [
+    {id:"aT1Gzgdjz18", title:"蔡志忠中國經典動畫【看動畫學成語】", channel:"Harvest Culture 百禾文化", topic:"成語・經典典故", why:"蔡志忠漫畫風格動畫，成語出自《孟子》《莊子》等經典，適合高年級。"},
+    {id:"D2Qcwjidxns", title:"「看動畫．學歷史」第一集：孔子（普通話）", channel:"香港教育大學中文動畫系列", topic:"歷史人物", dur:"約 6 分鐘", why:"專為小學生設計的歷史動畫，另有教案與學習單。"},
+    {id:"Y5gXIvu-Enw", title:"【成語故事】否極泰來", channel:"成語故事&日用品製造大揭密&爆笑三國志", topic:"成語・典故", dur:"約 1 分鐘", why:"頻道標示適合 6～12 歲，附注音與出處。"},
+    {id:"Q_ADUjWsqV8", title:"中華五千年歷史故事動畫｜堯舜禪讓", channel:"林揚泰", topic:"歷史故事", why:"上古傳說入門，可以搭配社會課。"},
+  ],
+  m: [
+    {id:"Uf7WG-rVcb4", title:"成語任務 01｜小時了了", channel:"FCCSD 中華文化永續發展基金會", topic:"成語・世說新語", why:"孔融的故事，馮翊綱配音，語速和用詞接近中學程度。"},
+    {id:"_9QT8lScV1U", title:"成語任務 24｜朝三暮四", channel:"FCCSD 中華文化永續發展基金會", topic:"成語・莊子寓言", why:"從《莊子》原典講起，適合銜接國文課的古文。"},
+    {id:"c-RGQS8zy3I", title:"成語任務 28｜落井下石", channel:"FCCSD 中華文化永續發展基金會", topic:"成語・柳宗元與韓愈", why:"牽涉唐代文人典故，適合中學生。"},
+    {id:"-xx02hMLCP0", title:"春秋時代中國歷史動畫｜春秋五霸", channel:"Darcy拼學趣", topic:"歷史・春秋", why:"人物和典故多，片長較長，適合中學生分段看。"},
+  ],
+};
+
+/* ===== 狀態 ===== */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+const today = new Date();
+const dayIndex = Math.floor((today - new Date(today.getFullYear(),0,0)) / 864e5);
+let level = store.get("level", "k");
+let offset = 0;            // 「換一部」
+let viewing = null;        // 目前播放的影片
+let seen = store.get("seen", {});
+let player = null, playerReady = false, ccMode = "zh", tracks = [];
+
+const $ = s => document.querySelector(s);
+const fmtDate = d => `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日 星期${"日一二三四五六"[d.getDay()]}`;
+$("#date").textContent = fmtDate(today);
+
+/* 每天輪替：第 i 天選 pool[(dayIndex - i) % n] */
+function pickFor(lv, daysAgo){
+  const p = POOL[lv], n = p.length;
+  return p[(((dayIndex - daysAgo + offset) % n) + n) % n];
+}
+
+/* ===== 介面 ===== */
+function renderTabs(){
+  $("#tabs").innerHTML = LEVELS.map(l => `
+    <button class="tab" role="tab" data-level="${l.id}" aria-selected="${l.id===level}">
+      <b><span class="dot"></span>${l.name}</b>
+      <small>語速 ${l.rate} 字／分</small>
+    </button>`).join("");
+  $("#tabs").querySelectorAll(".tab").forEach(b => b.onclick = () => { level = b.dataset.level; offset = 0; store.set("level", level); render(); });
+}
+function renderRules(){
+  $("#rules").innerHTML = LEVELS.map(l => `
+    <tr><td><span class="sw" style="background:${l.color}"></span><b>${l.name}</b></td>
+    <td>${l.rate}<br><small style="color:var(--muted)">${l.tone}</small></td>
+    <td>${l.topic}<br><small style="color:var(--muted)">${l.len}</small></td></tr>`).join("");
+}
+function render(){
+  document.body.dataset.level = level;
+  renderTabs();
+  show(pickFor(level, 0));
+  renderHistory();
+}
+function show(v){
+  viewing = v;
+  const L = LEVELS.find(l => l.id === level);
+  $("#vTitle").textContent = v.title;
+  $("#vChannel").textContent = v.channel;
+  $("#vChips").innerHTML = `
+    <span class="chip">${L.name}</span>
+    <span class="chip">${v.topic}</span>
+    ${v.dur ? `<span class="chip">${v.dur}</span>` : ""}
+    <span class="chip">目標語速 ${L.rate} 字／分</span>
+    <span class="chip pending">實測語速：待分析</span>`;
+  $("#vWhy").textContent = v.why;
+  const url = `https://www.youtube.com/watch?v=${v.id}`;
+  $("#ytLink").href = url; $("#fallbackLink").href = url;
+  $("#fallback").style.backgroundImage = `url(https://i.ytimg.com/vi/${v.id}/hqdefault.jpg)`;
+  updateDone();
+  tracks = []; setCcStatus("按下播放後會偵測這部影片有哪些字幕");
+  loadVideo(v.id);
+  renderHistory();
+}
+function renderHistory(){
+  const labels = ["今天","昨天","前天","3 天前"];
+  $("#hist").innerHTML = labels.map((lab, i) => {
+    const v = pickFor(level, i);
+    return `<li data-id="${v.id}" class="${viewing && viewing.id===v.id ? "current":""}">
+      <div class="thumb" style="background-image:url(https://i.ytimg.com/vi/${v.id}/mqdefault.jpg)"></div>
+      <div><div class="d">${lab}${seen[v.id] ? ' · <span class="seen">✓ 看過</span>' : ""}</div><div class="t">${v.title}</div></div></li>`;
+  }).join("");
+  $("#hist").querySelectorAll("li").forEach(li => li.onclick = () => {
+    show(POOL[level].find(x => x.id === li.dataset.id));
+  });
+}
+function updateDone(){
+  const b = $("#doneBtn"), on = !!seen[viewing.id];
+  b.className = "btn " + (on ? "done" : "primary");
+  b.textContent = on ? "✓ 已看完" : "✓ 看完了";
+}
+$("#doneBtn").onclick = () => {
+  if (seen[viewing.id]) delete seen[viewing.id]; else seen[viewing.id] = Date.now();
+  store.set("seen", seen); updateDone(); renderHistory();
+};
+$("#swapBtn").onclick = () => { offset++; show(pickFor(level, 0)); };
+
+/* ===== 播放速度 ===== */
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5];
+$("#speedGroup").insertAdjacentHTML("beforeend",
+  SPEEDS.map(s => `<button class="pill ${s===1?"on":""}" data-speed="${s}">${s}x</button>`).join(""));
+function markSpeed(r){
+  document.querySelectorAll("[data-speed]").forEach(b => b.classList.toggle("on", +b.dataset.speed === r));
+}
+document.querySelectorAll("[data-speed]").forEach(b => b.onclick = () => {
+  const r = +b.dataset.speed; markSpeed(r);
+  if (playerReady) player.setPlaybackRate(r);
+});
+
+/* ===== 字幕 ===== */
+function setCcStatus(t){ $("#ccStatus").textContent = t; }
+function findTrack(pred){ return tracks.find(t => pred((t.languageCode||"").toLowerCase())); }
+function applyCc(){
+  document.querySelectorAll("[data-cc]").forEach(b => b.classList.toggle("on", b.dataset.cc === ccMode));
+  if (!playerReady) return;
+  try{
+    if (ccMode === "off"){ player.unloadModule("captions"); setCcStatus("字幕已關閉"); return; }
+    player.loadModule("captions");
+    if (!tracks.length){ setCcStatus("這部影片沒有偵測到字幕軌，字幕可能直接印在畫面上"); return; }
+    const zh = findTrack(c => c.startsWith("zh"));
+    const en = findTrack(c => c.startsWith("en"));
+    if (ccMode === "zh"){
+      if (zh){ player.setOption("captions","track",{languageCode:zh.languageCode}); setCcStatus(`中文字幕：${zh.displayName || zh.languageCode}`); }
+      else setCcStatus("這部影片沒有中文字幕軌");
+    } else {
+      if (en){ player.setOption("captions","track",{languageCode:en.languageCode}); setCcStatus("英文字幕（影片原有）"); }
+      else if (zh){ player.setOption("captions","track",{languageCode:zh.languageCode, translationLanguage:{languageCode:"en"}}); setCcStatus("英文字幕（YouTube 自動翻譯，可能不太準確）"); }
+      else setCcStatus("沒有可翻譯的字幕軌");
+    }
+  }catch(e){ setCcStatus("字幕切換失敗，可以用播放器右下角的 CC 按鈕"); }
+}
+document.querySelectorAll("[data-cc]").forEach(b => b.onclick = () => { ccMode = b.dataset.cc; applyCc(); });
+
+/* ===== YouTube 播放器 =====
+   作法：自己放入 <iframe>（就算 API 腳本沒載入，影片也能播），
+   再用 IFrame API 接上，才能控制速度與字幕。 */
+const isFile = location.protocol === "file:";
+const ERR = {
+  2:"影片網址有誤", 5:"瀏覽器無法播放這部影片", 100:"這部影片已被移除或設為私人",
+  101:"影片擁有者不允許在其他網站播放", 150:"影片擁有者不允許在其他網站播放",
+  153:"YouTube 拒絕播放：本頁是直接從檔案開啟的，請改用網址開啟（見下方說明）"
+};
+function embedSrc(id){
+  const q = new URLSearchParams({enablejsapi:1, rel:0, playsinline:1, cc_load_policy:1, cc_lang_pref:"zh-Hant", hl:"zh-TW"});
+  if (!isFile) q.set("origin", location.origin);
+  return `https://www.youtube.com/embed/${id}?${q}`;
+}
+function buildIframe(id){
+  $("#player").outerHTML = `<iframe id="player" src="${embedSrc(id)}" title="故事影片播放器"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen
+    referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+}
+function showError(msg){
+  $("#fallbackMsg").textContent = msg;
+  $("#fallback").style.display = "flex";
+}
+function hideError(){ $("#fallback").style.display = "none"; }
+function loadVideo(id){
+  hideError();
+  if (playerReady){ player.cueVideoById(id); }
+  else { buildIframe(id); attachApi(); }
+}
+function attachApi(){
+  if (!(window.YT && YT.Player)) return;
+  player = new YT.Player("player", {
+    events: {
+      onReady: () => { playerReady = true; },
+      onApiChange: () => {
+        try{ tracks = player.getOption("captions","tracklist") || []; }catch(e){ tracks = []; }
+        applyCc();
+      },
+      onPlaybackRateChange: e => markSpeed(e.data),
+      onStateChange: e => {
+        if (e.data === YT.PlayerState.PLAYING){
+          const r = +document.querySelector("[data-speed].on").dataset.speed;
+          if (player.getPlaybackRate() !== r) player.setPlaybackRate(r);
+        }
+      },
+      onError: e => showError(ERR[e.data] || `播放錯誤（代碼 ${e.data}）`)
+    }
+  });
+}
+window.onYouTubeIframeAPIReady = attachApi;
+(function loadYT(){
+  const s = document.createElement("script");
+  s.src = "https://www.youtube.com/iframe_api";
+  s.onerror = () => setCcStatus("控制介面沒有載入，速度與字幕請用播放器內的齒輪按鈕調整");
+  document.head.appendChild(s);
+})();
+if (isFile) $("#fileWarn").style.display = "block";
+
+renderRules();
+render();
+</script>
+</body>
+</html>
