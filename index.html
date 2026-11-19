@@ -36,6 +36,17 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden}
   .player-box{position:relative;aspect-ratio:16/9;background:#1f1b18}
   .player-box iframe,#player{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .subs{position:absolute;left:50%;transform:translateX(-50%);bottom:56px;width:min(92%,900px);text-align:center;pointer-events:none;display:none;z-index:2}
+  .subs.show{display:block}
+  .subs span{display:inline;background:rgba(15,12,10,.72);color:#fff;padding:2px 10px;border-radius:6px;-webkit-box-decoration-break:clone;box-decoration-break:clone;line-height:1.7}
+  .subs .zh{font-size:clamp(16px,2.6vw,26px);font-weight:500}
+  .subs .en{font-size:clamp(13px,1.9vw,19px);color:#ffe9a8}
+  .subs .zh.interim{opacity:.75}
+  .player-box:fullscreen{aspect-ratio:auto;width:100vw;height:100vh}
+  .player-box:fullscreen .subs{bottom:70px}
+  .pill.live.on{background:#c0392b;border-color:#c0392b}
+  .pill.live.on::before{content:"● ";animation:blink 1.2s infinite}
+  @keyframes blink{50%{opacity:.2}}
   .fallback{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;
     color:#fff;text-align:center;padding:20px;background-size:cover;background-position:center}
   .fallback::before{content:"";position:absolute;inset:0;background:rgba(20,16,12,.6)}
@@ -109,6 +120,7 @@
     <section class="card">
       <div class="player-box">
         <div id="player"></div>
+        <div class="subs" id="subs"><div><span class="zh" id="subZh"></span></div><div><span class="en" id="subEn"></span></div></div>
         <div class="fallback" id="fallback">
           <div id="fallbackMsg">播放器沒有載入</div>
           <a id="fallbackLink" href="#" target="_blank" rel="noopener">到 YouTube 觀看 ↗</a>
@@ -124,6 +136,11 @@
           <button class="pill" data-cc="off">關閉</button>
           <button class="pill on" data-cc="zh">中文</button>
           <button class="pill" data-cc="en">English</button>
+          <button class="pill" data-cc="both">中英</button>
+        </div>
+        <div class="group">
+          <button class="pill live" id="liveBtn" title="沒有字幕軌時，用麥克風聽影片聲音即時產生字幕">🎙 即時字幕</button>
+          <button class="pill" id="fsBtn" title="全螢幕（會保留即時字幕）">⛶ 全螢幕</button>
         </div>
         <div class="cc-status" id="ccStatus">按下播放後會偵測這部影片有哪些字幕</div>
       </div>
@@ -255,7 +272,9 @@ function show(v){
   $("#ytLink").href = url; $("#fallbackLink").href = url;
   $("#fallback").style.backgroundImage = `url(https://i.ytimg.com/vi/${v.id}/hqdefault.jpg)`;
   updateDone();
-  tracks = []; setCcStatus("按下播放後會偵測這部影片有哪些字幕");
+  tracks = []; subFile = null; setSubs("", "");
+  setCcStatus(live ? "即時字幕開啟中，播放後開始辨識" : "按下播放後會偵測這部影片有哪些字幕");
+  loadSubFile(v.id);
   loadVideo(v.id);
   renderHistory();
 }
@@ -294,29 +313,167 @@ document.querySelectorAll("[data-speed]").forEach(b => b.onclick = () => {
   if (playerReady) player.setPlaybackRate(r);
 });
 
-/* ===== 字幕 ===== */
+/* ===== 字幕 =====
+   來源優先順序：
+   1. 字幕檔 subs/<影片ID>.json（之後由 skill 事先產生，最準）
+   2. YouTube 影片原有字幕軌
+   3. 即時字幕：麥克風聽喇叭聲音 → 語音辨識（中文）→ 翻譯（英文）
+   顯示模式 ccMode：off／zh／en／both */
 function setCcStatus(t){ $("#ccStatus").textContent = t; }
 function findTrack(pred){ return tracks.find(t => pred((t.languageCode||"").toLowerCase())); }
+
+let subFile = null;          // [{s:秒, e:秒, zh:"…", en:"…"}]
+let live = false, rec = null, liveSeq = 0, translator = null;
+
+function setSubs(zh, en, interim){
+  const showZh = (ccMode === "zh" || ccMode === "both") && zh;
+  const showEn = (ccMode === "en" || ccMode === "both") && en;
+  $("#subZh").textContent = showZh ? zh : "";
+  $("#subZh").classList.toggle("interim", !!interim);
+  $("#subEn").textContent = showEn ? en : "";
+  $("#subZh").style.display = showZh ? "" : "none";
+  $("#subEn").style.display = showEn ? "" : "none";
+  $("#subs").classList.toggle("show", !!(showZh || showEn));
+}
+function nativeCaptions(on){
+  if (!playerReady) return;
+  try{ on ? player.loadModule("captions") : player.unloadModule("captions"); }catch(e){}
+}
+
+/* 1. 字幕檔 */
+function loadSubFile(id){
+  if (isFile) return;
+  fetch(`subs/${id}.json`).then(r => r.ok ? r.json() : null).then(j => {
+    if (viewing && viewing.id === id && Array.isArray(j) && j.length){ subFile = j; applyCc(); }
+  }).catch(() => {});
+}
+let lastCue = null;
+setInterval(() => {
+  if (!subFile || !playerReady || live || ccMode === "off") return;
+  let t; try{ t = player.getCurrentTime(); }catch(e){ return; }
+  const cue = subFile.find(c => t >= c.s && t < c.e) || null;
+  if (cue !== lastCue){ lastCue = cue; setSubs(cue ? cue.zh : "", cue ? cue.en : ""); }
+}, 200);
+
+/* 主邏輯 */
 function applyCc(){
   document.querySelectorAll("[data-cc]").forEach(b => b.classList.toggle("on", b.dataset.cc === ccMode));
+  if (ccMode === "off"){ setSubs("", ""); nativeCaptions(false); setCcStatus("字幕已關閉"); return; }
+  if (live){ nativeCaptions(false); setCcStatus(liveStatusText()); return; }
+  if (subFile){ nativeCaptions(false); lastCue = undefined; setCcStatus("使用字幕檔（中英對照）"); return; }
+  setSubs("", "");
   if (!playerReady) return;
   try{
-    if (ccMode === "off"){ player.unloadModule("captions"); setCcStatus("字幕已關閉"); return; }
-    player.loadModule("captions");
-    if (!tracks.length){ setCcStatus("這部影片沒有偵測到字幕軌，字幕可能直接印在畫面上"); return; }
+    if (!tracks.length){ nativeCaptions(false); setCcStatus("這部影片沒有字幕軌。可以按「🎙 即時字幕」，用麥克風聽影片聲音產生字幕"); return; }
+    nativeCaptions(true);
     const zh = findTrack(c => c.startsWith("zh"));
     const en = findTrack(c => c.startsWith("en"));
-    if (ccMode === "zh"){
-      if (zh){ player.setOption("captions","track",{languageCode:zh.languageCode}); setCcStatus(`中文字幕：${zh.displayName || zh.languageCode}`); }
-      else setCcStatus("這部影片沒有中文字幕軌");
+    if (ccMode === "zh" || ccMode === "both"){
+      if (zh){ player.setOption("captions","track",{languageCode:zh.languageCode});
+        setCcStatus(ccMode === "both" ? "YouTube 字幕一次只能顯示一種語言，目前顯示中文。要中英對照請按「🎙 即時字幕」" : `中文字幕：${zh.displayName || zh.languageCode}`); }
+      else setCcStatus("這部影片沒有中文字幕軌，可以按「🎙 即時字幕」");
     } else {
       if (en){ player.setOption("captions","track",{languageCode:en.languageCode}); setCcStatus("英文字幕（影片原有）"); }
-      else if (zh){ player.setOption("captions","track",{languageCode:zh.languageCode, translationLanguage:{languageCode:"en"}}); setCcStatus("英文字幕（YouTube 自動翻譯，可能不太準確）"); }
-      else setCcStatus("沒有可翻譯的字幕軌");
+      else if (zh){ player.setOption("captions","track",{languageCode:zh.languageCode, translationLanguage:{languageCode:"en"}}); setCcStatus("英文字幕（YouTube 自動翻譯）"); }
+      else setCcStatus("沒有可翻譯的字幕軌，可以按「🎙 即時字幕」");
     }
   }catch(e){ setCcStatus("字幕切換失敗，可以用播放器右下角的 CC 按鈕"); }
 }
-document.querySelectorAll("[data-cc]").forEach(b => b.onclick = () => { ccMode = b.dataset.cc; applyCc(); });
+document.querySelectorAll("[data-cc]").forEach(b => b.onclick = () => {
+  ccMode = b.dataset.cc; applyCc();
+  if (live && ccMode !== "zh") getTranslator().catch(() => {});
+});
+
+/* 3. 即時字幕 */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function liveStatusText(){
+  const how = translator ? (translator.remote ? "英文翻譯：線上翻譯服務" : "英文翻譯：瀏覽器內建（離線）") : "";
+  return `🎙 即時字幕開啟中：請用喇叭播放（不要戴耳機），麥克風會聽影片聲音。${how}`;
+}
+const online = {
+  remote:true,
+  translate: async s => {
+    const r = await fetch("https://api.mymemory.translated.net/get?langpair=zh-TW|en&q=" + encodeURIComponent(s));
+    const j = await r.json();
+    if (!j || !j.responseData) throw new Error("translate failed");
+    return j.responseData.translatedText;
+  }
+};
+let localTried = false;
+function withTimeout(pr, ms){ return Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]); }
+async function getTranslator(){
+  if (translator && !translator.remote) return translator;
+  // Chrome 內建翻譯（離線）：已下載就直接用；還沒下載就在背景下載，期間先用線上翻譯
+  if (!localTried && "Translator" in self){
+    localTried = true;
+    try{
+      const a = await withTimeout(Translator.availability({sourceLanguage:"zh", targetLanguage:"en"}), 2000);
+      if (a !== "unavailable"){
+        const making = Translator.create({sourceLanguage:"zh", targetLanguage:"en"})
+          .then(t => { translator = {translate: s => t.translate(s), remote:false}; if (live) setCcStatus(liveStatusText()); })
+          .catch(() => {});
+        if (a === "available"){ await withTimeout(making, 3000).catch(() => {}); if (translator && !translator.remote) return translator; }
+      }
+    }catch(e){}
+  }
+  translator = translator || online;
+  return translator;
+}
+function recognizing(on){
+  if (!rec) return;
+  try{ on ? rec.start() : rec.stop(); }catch(e){}
+}
+function startLive(){
+  if (!SR){ setCcStatus("這個瀏覽器不支援語音辨識，請改用 Chrome 或 Edge"); return false; }
+  rec = new SR();
+  rec.lang = "zh-TW"; rec.continuous = true; rec.interimResults = true;
+  rec.onresult = e => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++){
+      const r = e.results[i], text = r[0].transcript.trim();
+      if (!text) continue;
+      if (!r.isFinal){ interim += text; continue; }
+      const seq = ++liveSeq;
+      setSubs(text, ccMode === "zh" ? "" : "…");
+      if (ccMode !== "zh"){
+        getTranslator().then(t => withTimeout(t.translate(text), 6000).catch(() => t.remote ? Promise.reject() : online.translate(text))).then(en => {
+          if (seq === liveSeq && live) setSubs(text, en);
+          setCcStatus(liveStatusText());
+        }).catch(() => { if (seq === liveSeq && live) setSubs(text, "（翻譯暫時失敗）"); });
+      }
+    }
+    if (interim) setSubs(interim, "", true);
+  };
+  rec.onerror = e => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed"){ stopLive(); setCcStatus("沒有取得麥克風權限。請點網址列左邊的圖示，允許使用麥克風後再試一次"); }
+    else if (e.error === "network") setCcStatus("語音辨識需要網路連線，請確認網路後再試");
+    else if (e.error === "audio-capture") { stopLive(); setCcStatus("找不到麥克風，請確認電腦有麥克風"); }
+  };
+  rec.onend = () => { if (live && isPlaying()) recognizing(true); };   // Chrome 靜音一陣子會自動停止，重新啟動
+  return true;
+}
+function isPlaying(){ try{ return playerReady && player.getPlayerState() === YT.PlayerState.PLAYING; }catch(e){ return false; } }
+function stopLive(){
+  live = false; $("#liveBtn").classList.remove("on");
+  if (rec){ rec.onend = null; recognizing(false); rec = null; }
+  setSubs("", ""); applyCc();
+}
+$("#liveBtn").onclick = () => {
+  if (live){ stopLive(); return; }
+  if (!startLive()) return;
+  live = true; $("#liveBtn").classList.add("on");
+  if (ccMode === "off") ccMode = "both";
+  if (ccMode !== "zh") getTranslator().catch(() => {});
+  applyCc();
+  if (isPlaying()) recognizing(true); else setCcStatus("即時字幕已開啟，按下播放後開始辨識（請用喇叭，不要戴耳機）");
+};
+
+/* 全螢幕：讓字幕留在畫面上 */
+$("#fsBtn").onclick = () => {
+  const box = $(".player-box");
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
+};
 
 /* ===== YouTube 播放器 =====
    作法：自己放入 <iframe>（就算 API 腳本沒載入，影片也能播），
@@ -358,6 +515,7 @@ function attachApi(){
       },
       onPlaybackRateChange: e => markSpeed(e.data),
       onStateChange: e => {
+        if (live){ if (e.data === YT.PlayerState.PLAYING) recognizing(true); else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.ENDED) recognizing(false); }
         if (e.data === YT.PlayerState.PLAYING){
           const r = +document.querySelector("[data-speed].on").dataset.speed;
           if (player.getPlaybackRate() !== r) player.setPlaybackRate(r);
