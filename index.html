@@ -92,6 +92,29 @@
   .warn{display:none;background:#fff4d6;border:1.5px solid #e9c46a;border-radius:14px;padding:12px 16px;margin-bottom:16px;font-size:14px}
   .warn code{background:#fff;padding:1px 6px;border-radius:6px}
   .fallback .btn{position:relative}
+  .quiz{border-top:1px dashed var(--line);padding:18px;background:linear-gradient(#fffdf8,var(--lv-soft))}
+  .quiz-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .quiz h3{font-family:"LXGW WenKai TC",serif;font-size:21px;margin:0}
+  .stars{font-size:22px;letter-spacing:2px}
+  .qnum{font-size:13px;color:var(--muted);margin-top:8px}
+  .qline{display:flex;gap:10px;align-items:flex-start}
+  .qtext{font-family:"LXGW WenKai TC",serif;font-size:24px;margin:4px 0 12px;flex:1;line-height:1.45}
+  .iconbtn{border:0;background:#fff;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;flex:none;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .chat{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+  .bubble{max-width:85%;padding:9px 14px;border-radius:16px;font-size:16px;line-height:1.5}
+  .bubble.kid{align-self:flex-end;background:var(--lv);color:#fff;border-bottom-right-radius:4px}
+  .bubble.bot{align-self:flex-start;background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
+  .bubble.bot b{color:var(--lv)}
+  .answer{display:flex;gap:8px}
+  .answer input{flex:1;min-width:0;font:inherit;font-size:17px;padding:10px 14px;border:2px solid var(--line);border-radius:12px;background:#fff}
+  .answer input:focus{outline:none;border-color:var(--lv)}
+  .mic{border:0;border-radius:12px;width:52px;font-size:22px;background:#fff;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .mic.on{background:#c0392b;animation:pulse 1s infinite}
+  @keyframes pulse{50%{transform:scale(1.08)}}
+  .quiz-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:13.5px;color:var(--muted)}
+  .btn.small{padding:6px 14px;font-size:14px}
+  .done-card{text-align:center;padding:8px 0}
+  .done-card .big{font-size:40px}
   footer{margin-top:24px;font-size:12.5px;color:var(--muted);text-align:center}
   @media (max-width:820px){
     .main{grid-template-columns:1fr}
@@ -107,7 +130,7 @@
       <h1>每日<span>故事屋</span></h1>
       <div class="date" id="date"></div>
     </div>
-    <div class="date">每天每個年級一部故事，點開就能看</div>
+    <div class="date" style="text-align:right">每天每個年級一部故事，點開就能看<br><small id="updated"></small></div>
   </header>
 
   <nav class="tabs" role="tablist" id="tabs"></nav>
@@ -152,7 +175,26 @@
         <div class="actions">
           <button class="btn primary" id="doneBtn">✓ 看完了</button>
           <button class="btn ghost" id="swapBtn">↻ 換一部</button>
+          <button class="btn ghost" id="quizBtn">💬 回答問題</button>
           <a class="btn ghost" id="ytLink" href="#" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a>
+        </div>
+      </div>
+      <div class="quiz" id="quiz" hidden>
+        <div class="quiz-head">
+          <h3>看完了，來回答三個問題吧！</h3>
+          <div class="stars" id="stars"></div>
+        </div>
+        <div class="qnum" id="qNum"></div>
+        <div class="qline"><p class="qtext" id="qText"></p><button class="iconbtn" id="sayBtn" title="再唸一次">🔊</button></div>
+        <div class="chat" id="chat"></div>
+        <form class="answer" id="answerForm" autocomplete="off">
+          <button type="button" class="mic" id="micBtn" title="按一下，用說的回答">🎤</button>
+          <input id="answerInput" placeholder="在這裡打字，或按 🎤 用說的" />
+          <button class="btn primary" type="submit">送出</button>
+        </form>
+        <div class="quiz-foot">
+          <label><input type="checkbox" id="ttsToggle" checked> 唸出題目和回應</label>
+          <button class="btn ghost small" id="nextBtn" hidden>下一題 →</button>
         </div>
       </div>
     </section>
@@ -172,7 +214,7 @@
     <p class="note">成人語速約 180 字／分鐘以上，不列入選片範圍。之後 skill 會依據逐字稿計算實際語速，再配合主題、片長判斷級別。</p>
   </details>
 
-  <footer>原型版本：影片由人工挑選示範，「實測語速」欄位待 skill 分析逐字稿後填入。</footer>
+  <footer>影片清單每天清晨自動更新。「實測語速」欄位待之後分析逐字稿後填入。</footer>
 </div>
 
 <script>
@@ -184,33 +226,8 @@ const LEVELS = [
   {id:"m",  name:"中學 1–3", rate:"140–180", topic:"成語出處、經典寓言、歷史故事", len:"5–20 分鐘", tone:"語速快、含文言詞彙", color:"#4f5fb8"},
 ];
 
-/* ===== 影片資料（之後由 skill 每天產生 daily.json 取代）===== */
-const POOL = {
-  k: [
-    {id:"IP9TPSwStZw", title:"佳佳老師說故事 EP171《我想大聲說》", channel:"佳佳老師說故事", topic:"繪本・勇敢表達", why:"主角有話說不出口，適合和孩子聊「怎麼把心裡的話說出來」。"},
-    {id:"repvqzwg90E", title:"有聲繪本《莎娜的紅毛衣》", channel:"格子酱讲绘本", topic:"繪本・想像力", why:"頻道標示適讀 3 歲以上；朋友一起想辦法把毛衣變大，情節溫暖。"},
-    {id:"o-luyxcs9P4", title:"有聲繪本《蚯蚓的天空》", channel:"格子酱讲绘本", topic:"繪本・探索", why:"小蚯蚓雨後出門探險，節奏慢，適合睡前。"},
-    {id:"VjYUtUaimVs", title:"有聲繪本《肚子裏的小人》", channel:"格子酱讲绘本", topic:"繪本・好好吃飯", why:"頻道標示 2～6 歲適讀，用想像力讓孩子明白要好好吃飯。"},
-  ],
-  p1: [
-    {id:"IU1-PxQ2bvQ", title:"伊索寓言《報恩的小螞蟻》", channel:"碰碰狐 鯊魚寶寶", topic:"寓言・感恩", why:"經典伊索寓言，角色少、因果清楚，低年級容易理解。"},
-    {id:"zhmblIaQFM0", title:"成語故事合集｜5 個成語 10 分鐘", channel:"洪恩 Global", topic:"成語・入門", dur:"約 10 分鐘", why:"井底之蛙、守株待兔等入門成語，每則約 2 分鐘。"},
-    {id:"V5sQLMRWK8o", title:"烏鴉喝水", channel:"FOOD超人", topic:"寓言・動腦解決問題", why:"短小的經典故事，看完可以問孩子：烏鴉為什麼能喝到水？"},
-    {id:"5ZF0MrvcdE8", title:"聽聽成語故事 01【杯弓蛇影】", channel:"momokids 親子台", topic:"成語・短劇", why:"真人短劇加動畫，介紹成語由來。"},
-  ],
-  p2: [
-    {id:"aT1Gzgdjz18", title:"蔡志忠中國經典動畫【看動畫學成語】", channel:"Harvest Culture 百禾文化", topic:"成語・經典典故", why:"蔡志忠漫畫風格動畫，成語出自《孟子》《莊子》等經典，適合高年級。"},
-    {id:"D2Qcwjidxns", title:"「看動畫．學歷史」第一集：孔子（普通話）", channel:"香港教育大學中文動畫系列", topic:"歷史人物", dur:"約 6 分鐘", why:"專為小學生設計的歷史動畫，另有教案與學習單。"},
-    {id:"Y5gXIvu-Enw", title:"【成語故事】否極泰來", channel:"成語故事&日用品製造大揭密&爆笑三國志", topic:"成語・典故", dur:"約 1 分鐘", why:"頻道標示適合 6～12 歲，附注音與出處。"},
-    {id:"Q_ADUjWsqV8", title:"中華五千年歷史故事動畫｜堯舜禪讓", channel:"林揚泰", topic:"歷史故事", why:"上古傳說入門，可以搭配社會課。"},
-  ],
-  m: [
-    {id:"Uf7WG-rVcb4", title:"成語任務 01｜小時了了", channel:"FCCSD 中華文化永續發展基金會", topic:"成語・世說新語", why:"孔融的故事，馮翊綱配音，語速和用詞接近中學程度。"},
-    {id:"_9QT8lScV1U", title:"成語任務 24｜朝三暮四", channel:"FCCSD 中華文化永續發展基金會", topic:"成語・莊子寓言", why:"從《莊子》原典講起，適合銜接國文課的古文。"},
-    {id:"c-RGQS8zy3I", title:"成語任務 28｜落井下石", channel:"FCCSD 中華文化永續發展基金會", topic:"成語・柳宗元與韓愈", why:"牽涉唐代文人典故，適合中學生。"},
-    {id:"-xx02hMLCP0", title:"春秋時代中國歷史動畫｜春秋五霸", channel:"Darcy拼學趣", topic:"歷史・春秋", why:"人物和典故多，片長較長，適合中學生分段看。"},
-  ],
-};
+/* ===== 影片資料：每天由排程任務更新 daily.json ===== */
+let DAYS = [];   // [{date, picks:{k,p1,p2,m}}]，由新到舊
 
 /* ===== 狀態 ===== */
 const store = {
@@ -218,7 +235,6 @@ const store = {
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 };
 const today = new Date();
-const dayIndex = Math.floor((today - new Date(today.getFullYear(),0,0)) / 864e5);
 let level = store.get("level", "k");
 let offset = 0;            // 「換一部」
 let viewing = null;        // 目前播放的影片
@@ -229,10 +245,12 @@ const $ = s => document.querySelector(s);
 const fmtDate = d => `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日 星期${"日一二三四五六"[d.getDay()]}`;
 $("#date").textContent = fmtDate(today);
 
-/* 每天輪替：第 i 天選 pool[(dayIndex - i) % n] */
-function pickFor(lv, daysAgo){
-  const p = POOL[lv], n = p.length;
-  return p[(((dayIndex - daysAgo + offset) % n) + n) % n];
+function getList(lv){ return DAYS.filter(d => d.picks && d.picks[lv]).map(d => Object.assign({date:d.date}, d.picks[lv])); }
+function pickFor(lv, i){ const l = getList(lv); return l[((i + offset) % l.length + l.length) % l.length]; }
+function relLabel(iso){
+  const [y,m,d] = iso.split("-").map(Number);
+  const diff = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - new Date(y, m-1, d)) / 864e5);
+  return diff === 0 ? "今天" : diff === 1 ? "昨天" : diff === 2 ? "前天" : `${m}/${d}`;
 }
 
 /* ===== 介面 ===== */
@@ -273,21 +291,21 @@ function show(v){
   $("#fallback").style.backgroundImage = `url(https://i.ytimg.com/vi/${v.id}/hqdefault.jpg)`;
   updateDone();
   tracks = []; subFile = null; setSubs("", "");
+  $("#quiz").hidden = true; try{ speechSynthesis.cancel(); }catch(e){}
   setCcStatus(live ? "即時字幕開啟中，播放後開始辨識" : "按下播放後會偵測這部影片有哪些字幕");
   loadSubFile(v.id);
   loadVideo(v.id);
   renderHistory();
 }
 function renderHistory(){
-  const labels = ["今天","昨天","前天","3 天前"];
-  $("#hist").innerHTML = labels.map((lab, i) => {
-    const v = pickFor(level, i);
+  $("#hist").innerHTML = getList(level).slice(0, 7).map(v => {
+    const lab = relLabel(v.date);
     return `<li data-id="${v.id}" class="${viewing && viewing.id===v.id ? "current":""}">
       <div class="thumb" style="background-image:url(https://i.ytimg.com/vi/${v.id}/mqdefault.jpg)"></div>
       <div><div class="d">${lab}${seen[v.id] ? ' · <span class="seen">✓ 看過</span>' : ""}</div><div class="t">${v.title}</div></div></li>`;
   }).join("");
   $("#hist").querySelectorAll("li").forEach(li => li.onclick = () => {
-    show(POOL[level].find(x => x.id === li.dataset.id));
+    show(getList(level).find(x => x.id === li.dataset.id));
   });
 }
 function updateDone(){
@@ -296,7 +314,7 @@ function updateDone(){
   b.textContent = on ? "✓ 已看完" : "✓ 看完了";
 }
 $("#doneBtn").onclick = () => {
-  if (seen[viewing.id]) delete seen[viewing.id]; else seen[viewing.id] = Date.now();
+  if (seen[viewing.id]) delete seen[viewing.id]; else { seen[viewing.id] = Date.now(); if ($("#quiz").hidden) openQuiz(); }
   store.set("seen", seen); updateDone(); renderHistory();
 };
 $("#swapBtn").onclick = () => { offset++; show(pickFor(level, 0)); };
@@ -475,6 +493,144 @@ $("#fsBtn").onclick = () => {
   else if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
 };
 
+/* ===== 看完影片的三個問題 =====
+   fact 題：答案包含任一 keyword 就算對；答錯先給提示，第二次再告訴答案。
+   open 題：沒有標準答案，孩子說了什麼都給予回應與鼓勵，再分享參考想法。 */
+let Q = {list:[], i:0, tries:0, score:0, answered:false};
+const norm = s => (s||"").toLowerCase().replace(/[\s，。！？、,.!?「」『』：:；;（）()]/g, "");
+function speak(text){
+  if (!$("#ttsToggle").checked || !("speechSynthesis" in window)) return;
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "zh-TW"; u.rate = level === "k" ? 0.85 : 0.95;
+    const v = speechSynthesis.getVoices().find(v => /zh[-_](TW|HK|CN)/i.test(v.lang));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function bubble(who, html){
+  const d = document.createElement("div");
+  d.className = "bubble " + who; d.innerHTML = html;
+  $("#chat").appendChild(d); d.scrollIntoView({block:"nearest", behavior:"smooth"});
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+function openQuiz(){
+  if (!viewing) return;
+  const list = viewing.quiz || [];
+  const box = $("#quiz"); box.hidden = false;
+  if (!list.length){
+    $("#qNum").textContent = ""; $("#qText").textContent = "這部影片還沒有問題喔！";
+    $("#answerForm").hidden = true; return;
+  }
+  Q = {list, i:0, tries:0, score:0, answered:false};
+  $("#answerForm").hidden = false;
+  showQuestion();
+  box.scrollIntoView({behavior:"smooth", block:"start"});
+}
+function renderStars(){
+  $("#stars").textContent = Q.list.map((_, k) => k < Q.score ? "⭐" : "☆").join("");
+}
+function showQuestion(){
+  const q = Q.list[Q.i];
+  Q.tries = 0; Q.answered = false;
+  $("#chat").innerHTML = "";
+  $("#qNum").textContent = `第 ${Q.i + 1} 題／共 ${Q.list.length} 題`;
+  $("#qText").textContent = q.q;
+  $("#answerInput").value = ""; $("#answerInput").disabled = false;
+  $("#nextBtn").hidden = true;
+  renderStars();
+  speak(q.q);
+  setTimeout(() => { try{ $("#answerInput").focus({preventScroll:true}); }catch(e){} }, 50);
+}
+function respond(answer){
+  const q = Q.list[Q.i];
+  const a = answer.trim();
+  if (!a || Q.answered) return;
+  bubble("kid", esc(a));
+  $("#answerInput").value = "";
+  let reply, done = false;
+  if (q.type === "open"){
+    if (norm(a).length < 2){
+      reply = "可以多說一點點嗎？說說看你的想法 😊";
+    } else {
+      reply = `<b>${esc(q.praise || "謝謝你的分享！")}</b> 你說「${esc(a)}」，想得很好。<br>老師的想法是：${esc(q.sample)}`;
+      Q.score++; done = true;
+    }
+  } else {
+    const ok = (q.keywords || []).some(k => norm(a).includes(norm(k)));
+    Q.tries++;
+    if (ok){
+      reply = `<b>${pick(["答對了！🎉","太棒了！👏","完全正確！🌟","好厲害！💯"])}</b> ${esc(q.answer)}`;
+      if (Q.tries === 1) Q.score++; else Q.score += 0;
+      done = true;
+    } else if (Q.tries === 1){
+      reply = `<b>${pick(["再想想看！","給你一個小提示！","慢慢想沒關係！"])}</b> 提示：${esc(q.hint)}`;
+    } else {
+      reply = `<b>沒關係，我們一起看答案：</b>${esc(q.answer)}<br>下次一定記得！💪`;
+      done = true;
+    }
+  }
+  setTimeout(() => {
+    bubble("bot", reply);
+    speak(reply.replace(/<[^>]+>/g, ""));
+    renderStars();
+    if (done){
+      Q.answered = true; $("#answerInput").disabled = true;
+      const last = Q.i === Q.list.length - 1;
+      $("#nextBtn").textContent = last ? "看結果 →" : "下一題 →";
+      $("#nextBtn").hidden = false;
+    }
+  }, 350);
+}
+function finishQuiz(){
+  const n = Q.list.length, s = Q.score;
+  $("#qNum").textContent = ""; $("#answerForm").hidden = true; $("#nextBtn").hidden = true;
+  $("#qText").textContent = "";
+  const msg = s === n ? "全部答對，你是故事小達人！" : s >= n - 1 ? "表現很棒，繼續加油！" : "謝謝你認真回答，明天再來聽新故事吧！";
+  $("#chat").innerHTML = `<div class="done-card"><div class="big">${"⭐".repeat(s)}${"☆".repeat(n - s)}</div><p><b>${msg}</b></p>
+    <button class="btn ghost small" id="againBtn">↻ 再答一次</button></div>`;
+  $("#againBtn").onclick = openQuiz;
+  renderStars();
+  speak(msg);
+  if (!seen[viewing.id]){ seen[viewing.id] = Date.now(); store.set("seen", seen); updateDone(); renderHistory(); }
+}
+$("#answerForm").addEventListener("submit", e => { e.preventDefault(); respond($("#answerInput").value); });
+$("#nextBtn").onclick = () => { if (Q.i < Q.list.length - 1){ Q.i++; showQuestion(); } else finishQuiz(); };
+$("#sayBtn").onclick = () => { const was = $("#ttsToggle").checked; $("#ttsToggle").checked = true; speak($("#qText").textContent); $("#ttsToggle").checked = was; };
+$("#quizBtn").onclick = openQuiz;
+
+/* 語音回答：按一下開始聽，說完自動送出 */
+let ansRec = null;
+$("#micBtn").onclick = () => {
+  if (ansRec){ try{ ansRec.stop(); }catch(e){} return; }
+  if (!SR){ bubble("bot", "這個瀏覽器不能用語音回答，請改用 Chrome 或 Edge，或直接打字喔！"); return; }
+  if (Q.answered) return;
+  try{ speechSynthesis.cancel(); }catch(e){}
+  const pausedLive = live && rec;
+  if (pausedLive) recognizing(false);
+  ansRec = new SR();
+  ansRec.lang = "zh-TW"; ansRec.interimResults = true; ansRec.continuous = false;
+  let finalText = "";
+  ansRec.onresult = e => {
+    let t = ""; for (let i = 0; i < e.results.length; i++){ t += e.results[i][0].transcript; if (e.results[i].isFinal) finalText = t; }
+    $("#answerInput").value = t;
+  };
+  ansRec.onerror = e => {
+    if (e.error === "not-allowed") bubble("bot", "需要允許使用麥克風，才能用說的回答喔！");
+    else if (e.error === "no-speech") bubble("bot", "我沒有聽到聲音，再按一次 🎤 說說看！");
+  };
+  ansRec.onend = () => {
+    $("#micBtn").classList.remove("on"); ansRec = null;
+    const text = finalText || $("#answerInput").value;
+    if (text.trim()) respond(text);
+    if (pausedLive && isPlaying()) recognizing(true);
+  };
+  $("#micBtn").classList.add("on");
+  try{ ansRec.start(); }catch(e){ $("#micBtn").classList.remove("on"); ansRec = null; }
+};
+
 /* ===== YouTube 播放器 =====
    作法：自己放入 <iframe>（就算 API 腳本沒載入，影片也能播），
    再用 IFrame API 接上，才能控制速度與字幕。 */
@@ -516,6 +672,7 @@ function attachApi(){
       onPlaybackRateChange: e => markSpeed(e.data),
       onStateChange: e => {
         if (live){ if (e.data === YT.PlayerState.PLAYING) recognizing(true); else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.ENDED) recognizing(false); }
+        if (e.data === YT.PlayerState.ENDED && $("#quiz").hidden) openQuiz();
         if (e.data === YT.PlayerState.PLAYING){
           const r = +document.querySelector("[data-speed].on").dataset.speed;
           if (player.getPlaybackRate() !== r) player.setPlaybackRate(r);
@@ -535,7 +692,15 @@ window.onYouTubeIframeAPIReady = attachApi;
 if (isFile) $("#fileWarn").style.display = "block";
 
 renderRules();
-render();
+fetch("daily.json?v=" + Date.now()).then(r => { if (!r.ok) throw 0; return r.json(); }).then(j => {
+  DAYS = (j.days || []).filter(d => d.picks);
+  if (!DAYS.length) throw 0;
+  $("#updated").textContent = `影片更新：${j.updated}`;
+  render();
+}).catch(() => {
+  $("#vTitle").textContent = "讀不到今天的影片清單";
+  $("#vWhy").textContent = isFile ? "請用網址開啟本頁（雙擊 start-story.bat 或使用 GitHub Pages）。" : "請稍後重新整理頁面。";
+});
 </script>
 </body>
 </html>
