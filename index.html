@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>每日故事屋｜兒童中文故事影片</title>
+<title>Daily Chinese Story Time | 每日中文故事屋</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -22,6 +22,8 @@
   .wrap{max-width:1040px;margin:0 auto;padding:28px 20px 60px}
   header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
   h1{font-family:"LXGW WenKai TC",serif;font-size:34px;margin:0;letter-spacing:.04em}
+  h1 .zhname{font-size:.5em;color:var(--muted);margin-left:6px;font-weight:400;white-space:nowrap}
+  .tagline{text-align:left;width:100%;margin-top:-10px}
   h1 span{color:var(--lv);transition:color .3s}
   .date{color:var(--muted);font-size:15px}
   .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
@@ -115,6 +117,8 @@
   .voicebar{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
   .voicebar select{font:inherit;font-size:13.5px;padding:4px 6px;border-radius:8px;border:1.5px solid var(--line);background:#fff;max-width:220px}
   .voicetip{font-size:13px;background:#fff8e1;border-radius:10px;padding:8px 12px;margin:10px 0 0}
+  .quiz-foot{gap:10px}
+  #nextBtn{white-space:nowrap;flex:none}
   .btn.small{padding:6px 14px;font-size:14px}
   .done-card{text-align:center;padding:8px 0}
   .done-card .big{font-size:40px}
@@ -131,17 +135,17 @@
 <div class="wrap">
   <header>
     <div>
-      <h1>每日<span>故事屋</span></h1>
+      <h1>Daily Chinese <span>Story Time</span> <small class="zhname">每日中文故事屋</small></h1>
       <div class="date" id="date"></div>
     </div>
-    <div class="date" style="text-align:right">每天每個年級一部故事，點開就能看<br><small id="updated"></small></div>
+    <div class="date tagline">One Chinese story a day for each grade — just tap and watch<br><small id="updated"></small></div>
   </header>
 
   <nav class="tabs" role="tablist" id="tabs"></nav>
 
   <div class="warn" id="fileWarn">
-    ⚠️ 你目前是直接開啟檔案。YouTube 會拒絕在這種情況下播放（錯誤 153）。
-    請把網頁放到 <b>GitHub Pages</b>，或在這個資料夾執行 <code>python3 -m http.server</code> 後打開 <code>http://localhost:8000</code>。
+    ⚠️ You opened this page directly as a file, so YouTube refuses to play videos (error 153).
+    Please open it from <b>GitHub Pages</b>, or double-click <code>start-story.bat</code> in this folder.
   </div>
   <div class="main">
     <section class="card">
@@ -149,27 +153,27 @@
         <div id="player"></div>
         <div class="subs" id="subs"><div><span class="zh" id="subZh"></span></div><div><span class="en" id="subEn"></span></div></div>
         <div class="fallback" id="fallback">
-          <div id="fallbackMsg">播放器沒有載入</div>
-          <a id="fallbackLink" href="#" target="_blank" rel="noopener">到 YouTube 觀看 ↗</a>
-          <button class="btn ghost" onclick="offset++;show(pickFor(level,0))">↻ 換一部</button>
+          <div id="fallbackMsg">The player did not load</div>
+          <a id="fallbackLink" href="#" target="_blank" rel="noopener">Watch on YouTube ↗</a>
+          <button class="btn ghost" onclick="offset++;show(pickFor(level,0))">↻ Another video</button>
         </div>
       </div>
       <div class="controls">
         <div class="group" id="speedGroup">
-          <label>播放速度</label>
+          <label>Speed</label>
         </div>
         <div class="group" id="ccGroup">
-          <label>字幕</label>
-          <button class="pill" data-cc="off">關閉</button>
-          <button class="pill on" data-cc="zh">中文</button>
+          <label>Subtitles</label>
+          <button class="pill" data-cc="off">Off</button>
+          <button class="pill on" data-cc="zh">Chinese</button>
           <button class="pill" data-cc="en">English</button>
-          <button class="pill" data-cc="both">中英</button>
+          <button class="pill" data-cc="both">Both</button>
         </div>
         <div class="group">
-          <button class="pill live" id="liveBtn" title="沒有字幕軌時，用麥克風聽影片聲音即時產生字幕">🎙 即時字幕</button>
-          <button class="pill" id="fsBtn" title="全螢幕（會保留即時字幕）">⛶ 全螢幕</button>
+          <button class="pill live" id="liveBtn" title="No subtitles? Use the microphone to create live subtitles from the video sound">🎙 Live subtitles</button>
+          <button class="pill" id="fsBtn" title="Full screen (keeps live subtitles)">⛶ Full screen</button>
         </div>
-        <div class="cc-status" id="ccStatus">按下播放後會偵測這部影片有哪些字幕</div>
+        <div class="cc-status" id="ccStatus">Press play to check which subtitles this video has</div>
       </div>
       <div class="info">
         <h2 id="vTitle"></h2>
@@ -177,62 +181,62 @@
         <div class="chips" id="vChips"></div>
         <p class="why" id="vWhy"></p>
         <div class="actions">
-          <button class="btn primary" id="doneBtn">✓ 看完了</button>
-          <button class="btn ghost" id="swapBtn">↻ 換一部</button>
-          <button class="btn ghost" id="quizBtn">💬 回答問題</button>
-          <a class="btn ghost" id="ytLink" href="#" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a>
+          <button class="btn primary" id="doneBtn">✓ Finished</button>
+          <button class="btn ghost" id="swapBtn">↻ Another video</button>
+          <button class="btn ghost" id="quizBtn">💬 Answer questions</button>
+          <a class="btn ghost" id="ytLink" href="#" target="_blank" rel="noopener">Open on YouTube ↗</a>
         </div>
       </div>
       <div class="quiz" id="quiz" hidden>
         <div class="quiz-head">
-          <h3>看完了，來回答三個問題吧！</h3>
+          <h3>Great watching! Now answer 3 questions</h3>
           <div class="stars" id="stars"></div>
         </div>
         <div class="qnum" id="qNum"></div>
-        <div class="qline"><p class="qtext" id="qText"></p><button class="iconbtn" id="sayBtn" title="再唸一次">🔊</button></div>
+        <div class="qline"><p class="qtext" id="qText"></p><button class="iconbtn" id="sayBtn" title="Read again">🔊</button></div>
         <div class="chat" id="chat"></div>
         <form class="answer" id="answerForm" autocomplete="off">
-          <button type="button" class="mic" id="micBtn" title="按一下，用說的回答">🎤</button>
-          <input id="answerInput" placeholder="在這裡打字，或按 🎤 用說的" />
-          <button class="btn primary" type="submit">送出</button>
+          <button type="button" class="mic" id="micBtn" title="Tap and speak your answer">🎤</button>
+          <input id="answerInput" placeholder="Type here, or tap 🎤 to speak (Chinese)" />
+          <button class="btn primary" type="submit">Send</button>
         </form>
-        <p class="voicetip" id="voiceTip" hidden>💡 想要更自然、像真人的聲音，建議用 <b>Microsoft Edge</b> 開啟本頁，再選有 ★ 的「HsiaoChen」或「HsiaoYu」。</p>
+        <p class="voicetip" id="voiceTip" hidden>💡 For a more natural, human-like voice, open this page in <b>Microsoft Edge</b> and choose a ★ voice such as “HsiaoChen” or “HsiaoYu”.</p>
         <div class="quiz-foot">
           <div class="voicebar">
-            <label><input type="checkbox" id="ttsToggle" checked> 唸出題目和回應</label>
-            <label>聲音 <select id="voiceSel"></select></label>
-            <button type="button" class="btn ghost small" id="voiceTry">▶ 試聽</button>
+            <label><input type="checkbox" id="ttsToggle" checked> Read questions and replies aloud</label>
+            <label>Voice <select id="voiceSel"></select></label>
+            <button type="button" class="btn ghost small" id="voiceTry">▶ Preview</button>
           </div>
-          <button class="btn ghost small" id="nextBtn" hidden>下一題 →</button>
+          <button class="btn ghost small" id="nextBtn" hidden>Next →</button>
         </div>
       </div>
     </section>
 
     <aside class="card">
-      <h3>最近的故事</h3>
+      <h3>Recent stories</h3>
       <ul class="hist" id="hist"></ul>
     </aside>
   </div>
 
   <details class="card">
-    <summary>分級標準</summary>
+    <summary>Grading criteria</summary>
     <table>
-      <thead><tr><th>級別</th><th>語速（字／分鐘）</th><th>適合主題與片長</th></tr></thead>
+      <thead><tr><th>Level</th><th>Speech rate (characters/min)</th><th>Topics and length</th></tr></thead>
       <tbody id="rules"></tbody>
     </table>
-    <p class="note">成人語速約 180 字／分鐘以上，不列入選片範圍。之後 skill 會依據逐字稿計算實際語速，再配合主題、片長判斷級別。</p>
+    <p class="note">Adult speech (180+ characters/min) is not included. Measured speech rate from transcripts will be added later; levels are currently judged by topic, vocabulary and length.</p>
   </details>
 
-  <footer>影片清單每天清晨自動更新。「實測語速」欄位待之後分析逐字稿後填入。<div class="credit">Web Developer: Mr. Morris (TCIS)</div></footer>
+  <footer>New videos are picked automatically every morning. “Measured speech rate” will be filled in after transcript analysis.<div class="credit">Web Developer: Mr. Morris (TCIS)</div></footer>
 </div>
 
 <script>
 /* ===== 分級設定 ===== */
 const LEVELS = [
-  {id:"k",  name:"幼兒園",    rate:"100–120", topic:"繪本動畫、生活習慣、情緒故事", len:"3–10 分鐘", tone:"語氣柔和、停頓較多", color:"#e0694c"},
-  {id:"p1", name:"國小 1–3", rate:"120–140", topic:"伊索寓言、簡單成語故事、童話", len:"3–12 分鐘", tone:"句子短、情節單純", color:"#d9932b"},
-  {id:"p2", name:"國小 4–6", rate:"120–140", topic:"寓言合集、成語典故、歷史人物", len:"5–15 分鐘", tone:"詞彙較豐富", color:"#2f9a8a"},
-  {id:"m",  name:"中學 1–3", rate:"140–180", topic:"成語出處、經典寓言、歷史故事", len:"5–20 分鐘", tone:"語速快、含文言詞彙", color:"#4f5fb8"},
+  {id:"k",  name:"Kindergarten", rate:"100–120", topic:"Picture-book animations, daily habits, feelings", len:"3–10 min", tone:"Gentle voice, frequent pauses", color:"#e0694c"},
+  {id:"p1", name:"Grades 1–3", rate:"120–140", topic:"Aesop’s fables, simple idiom stories, fairy tales", len:"3–12 min", tone:"Short sentences, simple plots", color:"#d9932b"},
+  {id:"p2", name:"Grades 4–6", rate:"120–140", topic:"Fables, idiom origins, historical figures", len:"5–15 min", tone:"Richer vocabulary", color:"#2f9a8a"},
+  {id:"m",  name:"Grades 7–9", rate:"140–180", topic:"Idiom sources, classic fables, history", len:"5–20 min", tone:"Faster speech, some classical Chinese", color:"#4f5fb8"},
 ];
 
 /* ===== 影片資料：每天由排程任務更新 daily.json ===== */
@@ -251,7 +255,7 @@ let seen = store.get("seen", {});
 let player = null, playerReady = false, ccMode = "zh", tracks = [];
 
 const $ = s => document.querySelector(s);
-const fmtDate = d => `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日 星期${"日一二三四五六"[d.getDay()]}`;
+const fmtDate = d => d.toLocaleDateString("en-US", {weekday:"long", year:"numeric", month:"long", day:"numeric"});
 $("#date").textContent = fmtDate(today);
 
 function getList(lv){ return DAYS.filter(d => d.picks && d.picks[lv]).map(d => Object.assign({date:d.date}, d.picks[lv])); }
@@ -259,7 +263,7 @@ function pickFor(lv, i){ const l = getList(lv); return l[((i + offset) % l.lengt
 function relLabel(iso){
   const [y,m,d] = iso.split("-").map(Number);
   const diff = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()) - new Date(y, m-1, d)) / 864e5);
-  return diff === 0 ? "今天" : diff === 1 ? "昨天" : diff === 2 ? "前天" : `${m}/${d}`;
+  return diff === 0 ? "Today" : diff === 1 ? "Yesterday" : `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1]} ${d}`;
 }
 
 /* ===== 介面 ===== */
@@ -267,7 +271,7 @@ function renderTabs(){
   $("#tabs").innerHTML = LEVELS.map(l => `
     <button class="tab" role="tab" data-level="${l.id}" aria-selected="${l.id===level}">
       <b><span class="dot"></span>${l.name}</b>
-      <small>語速 ${l.rate} 字／分</small>
+      <small>${l.rate} characters/min</small>
     </button>`).join("");
   $("#tabs").querySelectorAll(".tab").forEach(b => b.onclick = () => { level = b.dataset.level; offset = 0; store.set("level", level); render(); });
 }
@@ -292,8 +296,8 @@ function show(v){
     <span class="chip">${L.name}</span>
     <span class="chip">${v.topic}</span>
     ${v.dur ? `<span class="chip">${v.dur}</span>` : ""}
-    <span class="chip">目標語速 ${L.rate} 字／分</span>
-    <span class="chip pending">實測語速：待分析</span>`;
+    <span class="chip">Target speed ${L.rate} chars/min</span>
+    <span class="chip pending">Measured speed: pending</span>`;
   $("#vWhy").textContent = v.why;
   const url = `https://www.youtube.com/watch?v=${v.id}`;
   $("#ytLink").href = url; $("#fallbackLink").href = url;
@@ -301,7 +305,7 @@ function show(v){
   updateDone();
   tracks = []; subFile = null; setSubs("", "");
   $("#quiz").hidden = true; try{ speechSynthesis.cancel(); }catch(e){}
-  setCcStatus(live ? "即時字幕開啟中，播放後開始辨識" : "按下播放後會偵測這部影片有哪些字幕");
+  setCcStatus(live ? "Live subtitles are on — they start when the video plays" : "Press play to check which subtitles this video has");
   loadSubFile(v.id);
   loadVideo(v.id);
   renderHistory();
@@ -311,7 +315,7 @@ function renderHistory(){
     const lab = relLabel(v.date);
     return `<li data-id="${v.id}" class="${viewing && viewing.id===v.id ? "current":""}">
       <div class="thumb" style="background-image:url(https://i.ytimg.com/vi/${v.id}/mqdefault.jpg)"></div>
-      <div><div class="d">${lab}${seen[v.id] ? ' · <span class="seen">✓ 看過</span>' : ""}</div><div class="t">${v.title}</div></div></li>`;
+      <div><div class="d">${lab}${seen[v.id] ? ' · <span class="seen">✓ Watched</span>' : ""}</div><div class="t">${v.title}</div></div></li>`;
   }).join("");
   $("#hist").querySelectorAll("li").forEach(li => li.onclick = () => {
     show(getList(level).find(x => x.id === li.dataset.id));
@@ -320,7 +324,7 @@ function renderHistory(){
 function updateDone(){
   const b = $("#doneBtn"), on = !!seen[viewing.id];
   b.className = "btn " + (on ? "done" : "primary");
-  b.textContent = on ? "✓ 已看完" : "✓ 看完了";
+  b.textContent = on ? "✓ Watched" : "✓ Finished";
 }
 $("#doneBtn").onclick = () => {
   if (seen[viewing.id]) delete seen[viewing.id]; else { seen[viewing.id] = Date.now(); if ($("#quiz").hidden) openQuiz(); }
@@ -385,26 +389,26 @@ setInterval(() => {
 /* 主邏輯 */
 function applyCc(){
   document.querySelectorAll("[data-cc]").forEach(b => b.classList.toggle("on", b.dataset.cc === ccMode));
-  if (ccMode === "off"){ setSubs("", ""); nativeCaptions(false); setCcStatus("字幕已關閉"); return; }
+  if (ccMode === "off"){ setSubs("", ""); nativeCaptions(false); setCcStatus("Subtitles off"); return; }
   if (live){ nativeCaptions(false); setCcStatus(liveStatusText()); return; }
-  if (subFile){ nativeCaptions(false); lastCue = undefined; setCcStatus("使用字幕檔（中英對照）"); return; }
+  if (subFile){ nativeCaptions(false); lastCue = undefined; setCcStatus("Using subtitle file (Chinese + English)"); return; }
   setSubs("", "");
   if (!playerReady) return;
   try{
-    if (!tracks.length){ nativeCaptions(false); setCcStatus("這部影片沒有字幕軌。可以按「🎙 即時字幕」，用麥克風聽影片聲音產生字幕"); return; }
+    if (!tracks.length){ nativeCaptions(false); setCcStatus("This video has no subtitle track. Tap “🎙 Live subtitles” to create them from the video sound"); return; }
     nativeCaptions(true);
     const zh = findTrack(c => c.startsWith("zh"));
     const en = findTrack(c => c.startsWith("en"));
     if (ccMode === "zh" || ccMode === "both"){
       if (zh){ player.setOption("captions","track",{languageCode:zh.languageCode});
-        setCcStatus(ccMode === "both" ? "YouTube 字幕一次只能顯示一種語言，目前顯示中文。要中英對照請按「🎙 即時字幕」" : `中文字幕：${zh.displayName || zh.languageCode}`); }
-      else setCcStatus("這部影片沒有中文字幕軌，可以按「🎙 即時字幕」");
+        setCcStatus(ccMode === "both" ? "YouTube shows one subtitle language at a time (showing Chinese). For both languages, tap “🎙 Live subtitles”" : `Chinese subtitles: ${zh.displayName || zh.languageCode}`); }
+      else setCcStatus("No Chinese subtitle track. Try “🎙 Live subtitles”");
     } else {
-      if (en){ player.setOption("captions","track",{languageCode:en.languageCode}); setCcStatus("英文字幕（影片原有）"); }
-      else if (zh){ player.setOption("captions","track",{languageCode:zh.languageCode, translationLanguage:{languageCode:"en"}}); setCcStatus("英文字幕（YouTube 自動翻譯）"); }
-      else setCcStatus("沒有可翻譯的字幕軌，可以按「🎙 即時字幕」");
+      if (en){ player.setOption("captions","track",{languageCode:en.languageCode}); setCcStatus("English subtitles (from the video)"); }
+      else if (zh){ player.setOption("captions","track",{languageCode:zh.languageCode, translationLanguage:{languageCode:"en"}}); setCcStatus("English subtitles (YouTube auto-translate)"); }
+      else setCcStatus("No subtitles to translate. Try “🎙 Live subtitles”");
     }
-  }catch(e){ setCcStatus("字幕切換失敗，可以用播放器右下角的 CC 按鈕"); }
+  }catch(e){ setCcStatus("Could not switch subtitles — use the CC button in the player"); }
 }
 document.querySelectorAll("[data-cc]").forEach(b => b.onclick = () => {
   ccMode = b.dataset.cc; applyCc();
@@ -414,8 +418,8 @@ document.querySelectorAll("[data-cc]").forEach(b => b.onclick = () => {
 /* 3. 即時字幕 */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 function liveStatusText(){
-  const how = translator ? (translator.remote ? "英文翻譯：線上翻譯服務" : "英文翻譯：瀏覽器內建（離線）") : "";
-  return `🎙 即時字幕開啟中：請用喇叭播放（不要戴耳機），麥克風會聽影片聲音。${how}`;
+  const how = translator ? (translator.remote ? " English: online translation." : " English: built-in browser translation (offline).") : "";
+  return `🎙 Live subtitles on: play through speakers (no headphones) so the microphone can hear the video.${how}`;
 }
 const online = {
   remote:true,
@@ -451,7 +455,7 @@ function recognizing(on){
   try{ on ? rec.start() : rec.stop(); }catch(e){}
 }
 function startLive(){
-  if (!SR){ setCcStatus("這個瀏覽器不支援語音辨識，請改用 Chrome 或 Edge"); return false; }
+  if (!SR){ setCcStatus("This browser does not support speech recognition. Please use Chrome or Edge"); return false; }
   rec = new SR();
   rec.lang = "zh-TW"; rec.continuous = true; rec.interimResults = true;
   rec.onresult = e => {
@@ -466,15 +470,15 @@ function startLive(){
         getTranslator().then(t => withTimeout(t.translate(text), 6000).catch(() => t.remote ? Promise.reject() : online.translate(text))).then(en => {
           if (seq === liveSeq && live) setSubs(text, en);
           setCcStatus(liveStatusText());
-        }).catch(() => { if (seq === liveSeq && live) setSubs(text, "（翻譯暫時失敗）"); });
+        }).catch(() => { if (seq === liveSeq && live) setSubs(text, "(translation unavailable)"); });
       }
     }
     if (interim) setSubs(interim, "", true);
   };
   rec.onerror = e => {
-    if (e.error === "not-allowed" || e.error === "service-not-allowed"){ stopLive(); setCcStatus("沒有取得麥克風權限。請點網址列左邊的圖示，允許使用麥克風後再試一次"); }
-    else if (e.error === "network") setCcStatus("語音辨識需要網路連線，請確認網路後再試");
-    else if (e.error === "audio-capture") { stopLive(); setCcStatus("找不到麥克風，請確認電腦有麥克風"); }
+    if (e.error === "not-allowed" || e.error === "service-not-allowed"){ stopLive(); setCcStatus("Microphone permission denied. Click the icon left of the address bar, allow the microphone, and try again"); }
+    else if (e.error === "network") setCcStatus("Speech recognition needs an internet connection");
+    else if (e.error === "audio-capture") { stopLive(); setCcStatus("No microphone found"); }
   };
   rec.onend = () => { if (live && isPlaying()) recognizing(true); };   // Chrome 靜音一陣子會自動停止，重新啟動
   return true;
@@ -492,7 +496,7 @@ $("#liveBtn").onclick = () => {
   if (ccMode === "off") ccMode = "both";
   if (ccMode !== "zh") getTranslator().catch(() => {});
   applyCc();
-  if (isPlaying()) recognizing(true); else setCcStatus("即時字幕已開啟，按下播放後開始辨識（請用喇叭，不要戴耳機）");
+  if (isPlaying()) recognizing(true); else setCcStatus("Live subtitles on — press play (use speakers, not headphones)");
 };
 
 /* 全螢幕：讓字幕留在畫面上 */
@@ -530,8 +534,8 @@ function loadVoices(){
   const sel = $("#voiceSel"); if (!sel) return;
   const saved = store.get("voice", "");
   sel.innerHTML = VOICES.length
-    ? VOICES.map(v => `<option value="${esc(v.name)}">${isNatural(v) ? "★ " : ""}${esc(v.name.replace(/^Microsoft /, "").replace(/ - .*$/, ""))}${/臺灣|台灣|大陸/.test(v.name) ? "" : /TW|Hant/i.test(v.lang) ? "（臺灣）" : /CN|Hans/i.test(v.lang) ? "（大陸）" : ""}</option>`).join("")
-    : `<option value="">（找不到中文語音）</option>`;
+    ? VOICES.map(v => `<option value="${esc(v.name)}">${isNatural(v) ? "★ " : ""}${esc(v.name.replace(/^Microsoft /, "").replace(/ - .*$/, ""))}${/臺灣|台灣|大陸/.test(v.name) ? "" : /TW|Hant/i.test(v.lang) ? " (Taiwan)" : /CN|Hans/i.test(v.lang) ? " (Mainland)" : ""}</option>`).join("")
+    : `<option value="">(no Chinese voice found)</option>`;
   if (saved && VOICES.some(v => v.name === saved)) sel.value = saved;
   const best = VOICES[0];
   $("#voiceTip").hidden = !!(best && /Natural|Neural|Online/i.test(best.name));
@@ -573,7 +577,7 @@ function openQuiz(){
   const list = viewing.quiz || [];
   const box = $("#quiz"); box.hidden = false;
   if (!list.length){
-    $("#qNum").textContent = ""; $("#qText").textContent = "這部影片還沒有問題喔！";
+    $("#qNum").textContent = ""; $("#qText").textContent = "No questions for this video yet.";
     $("#answerForm").hidden = true; return;
   }
   Q = {list, i:0, tries:0, score:0, answered:false};
@@ -588,7 +592,7 @@ function showQuestion(){
   const q = Q.list[Q.i];
   Q.tries = 0; Q.answered = false;
   $("#chat").innerHTML = "";
-  $("#qNum").textContent = `第 ${Q.i + 1} 題／共 ${Q.list.length} 題`;
+  $("#qNum").textContent = `Question ${Q.i + 1} of ${Q.list.length}`;
   $("#qText").textContent = q.q;
   $("#answerInput").value = ""; $("#answerInput").disabled = false;
   $("#nextBtn").hidden = true;
@@ -631,7 +635,7 @@ function respond(answer){
     if (done){
       Q.answered = true; $("#answerInput").disabled = true;
       const last = Q.i === Q.list.length - 1;
-      $("#nextBtn").textContent = last ? "看結果 →" : "下一題 →";
+      $("#nextBtn").textContent = last ? "See results →" : "Next →";
       $("#nextBtn").hidden = false;
     }
   }, 350);
@@ -642,7 +646,7 @@ function finishQuiz(){
   $("#qText").textContent = "";
   const msg = s === n ? "全部答對，你是故事小達人！" : s >= n - 1 ? "表現很棒，繼續加油！" : "謝謝你認真回答，明天再來聽新故事吧！";
   $("#chat").innerHTML = `<div class="done-card"><div class="big">${"⭐".repeat(s)}${"☆".repeat(n - s)}</div><p><b>${msg}</b></p>
-    <button class="btn ghost small" id="againBtn">↻ 再答一次</button></div>`;
+    <button class="btn ghost small" id="againBtn">↻ Try again</button></div>`;
   $("#againBtn").onclick = openQuiz;
   renderStars();
   speak(msg);
@@ -660,7 +664,7 @@ $("#quizBtn").onclick = openQuiz;
 let ansRec = null;
 $("#micBtn").onclick = () => {
   if (ansRec){ try{ ansRec.stop(); }catch(e){} return; }
-  if (!SR){ bubble("bot", "這個瀏覽器不能用語音回答，請改用 Chrome 或 Edge，或直接打字喔！"); return; }
+  if (!SR){ bubble("bot", "Voice answers need Chrome or Edge — or just type your answer!"); return; }
   if (Q.answered) return;
   try{ speechSynthesis.cancel(); }catch(e){}
   const pausedLive = live && rec;
@@ -673,8 +677,8 @@ $("#micBtn").onclick = () => {
     $("#answerInput").value = t;
   };
   ansRec.onerror = e => {
-    if (e.error === "not-allowed") bubble("bot", "需要允許使用麥克風，才能用說的回答喔！");
-    else if (e.error === "no-speech") bubble("bot", "我沒有聽到聲音，再按一次 🎤 說說看！");
+    if (e.error === "not-allowed") bubble("bot", "Please allow the microphone to answer by voice.");
+    else if (e.error === "no-speech") bubble("bot", "I didn’t hear anything — tap 🎤 and try again!");
   };
   ansRec.onend = () => {
     $("#micBtn").classList.remove("on"); ansRec = null;
@@ -691,9 +695,9 @@ $("#micBtn").onclick = () => {
    再用 IFrame API 接上，才能控制速度與字幕。 */
 const isFile = location.protocol === "file:";
 const ERR = {
-  2:"影片網址有誤", 5:"瀏覽器無法播放這部影片", 100:"這部影片已被移除或設為私人",
-  101:"影片擁有者不允許在其他網站播放", 150:"影片擁有者不允許在其他網站播放",
-  153:"YouTube 拒絕播放：本頁是直接從檔案開啟的，請改用網址開啟（見下方說明）"
+  2:"Invalid video link", 5:"This browser can’t play this video", 100:"This video was removed or made private",
+  101:"The owner doesn’t allow this video on other websites", 150:"The owner doesn’t allow this video on other websites",
+  153:"YouTube refused to play because this page was opened as a file. Please open it from its web address"
 };
 function embedSrc(id){
   const q = new URLSearchParams({enablejsapi:1, rel:0, playsinline:1, cc_load_policy:1, cc_lang_pref:"zh-Hant", hl:"zh-TW"});
@@ -701,7 +705,7 @@ function embedSrc(id){
   return `https://www.youtube.com/embed/${id}?${q}`;
 }
 function buildIframe(id){
-  $("#player").outerHTML = `<iframe id="player" src="${embedSrc(id)}" title="故事影片播放器"
+  $("#player").outerHTML = `<iframe id="player" src="${embedSrc(id)}" title="Story video player"
     allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen
     referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
 }
@@ -733,7 +737,7 @@ function attachApi(){
           if (player.getPlaybackRate() !== r) player.setPlaybackRate(r);
         }
       },
-      onError: e => showError(ERR[e.data] || `播放錯誤（代碼 ${e.data}）`)
+      onError: e => showError(ERR[e.data] || `Playback error (code ${e.data})`)
     }
   });
 }
@@ -741,7 +745,7 @@ window.onYouTubeIframeAPIReady = attachApi;
 (function loadYT(){
   const s = document.createElement("script");
   s.src = "https://www.youtube.com/iframe_api";
-  s.onerror = () => setCcStatus("控制介面沒有載入，速度與字幕請用播放器內的齒輪按鈕調整");
+  s.onerror = () => setCcStatus("Controls didn’t load — use the gear icon in the player for speed and subtitles");
   document.head.appendChild(s);
 })();
 if (isFile) $("#fileWarn").style.display = "block";
@@ -750,11 +754,11 @@ renderRules();
 fetch("daily.json?v=" + Date.now()).then(r => { if (!r.ok) throw 0; return r.json(); }).then(j => {
   DAYS = (j.days || []).filter(d => d.picks);
   if (!DAYS.length) throw 0;
-  $("#updated").textContent = `影片更新：${j.updated}`;
+  $("#updated").textContent = `Updated: ${j.updated}`;
   render();
 }).catch(() => {
-  $("#vTitle").textContent = "讀不到今天的影片清單";
-  $("#vWhy").textContent = isFile ? "請用網址開啟本頁（雙擊 start-story.bat 或使用 GitHub Pages）。" : "請稍後重新整理頁面。";
+  $("#vTitle").textContent = "Couldn’t load today’s video list";
+  $("#vWhy").textContent = isFile ? "Please open this page from its web address (GitHub Pages or start-story.bat)." : "Please refresh the page in a moment.";
 });
 </script>
 </body>
