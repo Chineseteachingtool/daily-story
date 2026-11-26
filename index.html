@@ -458,23 +458,8 @@ function startLive(){
   if (!SR){ setCcStatus("This browser does not support speech recognition. Please use Chrome or Edge"); return false; }
   rec = new SR();
   rec.lang = "zh-TW"; rec.continuous = true; rec.interimResults = true;
-  rec.onresult = e => {
-    let interim = "";
-    for (let i = e.resultIndex; i < e.results.length; i++){
-      const r = e.results[i], text = r[0].transcript.trim();
-      if (!text) continue;
-      if (!r.isFinal){ interim += text; continue; }
-      const seq = ++liveSeq;
-      setSubs(text, ccMode === "zh" ? "" : "…");
-      if (ccMode !== "zh"){
-        getTranslator().then(t => withTimeout(t.translate(text), 6000).catch(() => t.remote ? Promise.reject() : online.translate(text))).then(en => {
-          if (seq === liveSeq && live) setSubs(text, en);
-          setCcStatus(liveStatusText());
-        }).catch(() => { if (seq === liveSeq && live) setSubs(text, "(translation unavailable)"); });
-      }
-    }
-    if (interim) setSubs(interim, "", true);
-  };
+  rec.onresult = e => onLiveResult(e);
+
   rec.onerror = e => {
     if (["not-allowed","service-not-allowed","language-not-supported"].includes(e.error)){ stopLive(); $("#ccStatus").innerHTML = micProblem(e.error); }
     else if (e.error === "network") setCcStatus("Speech recognition needs an internet connection");
@@ -483,18 +468,53 @@ function startLive(){
   rec.onend = () => { if (live && isPlaying()) recognizing(true); };   // Chrome 靜音一陣子會自動停止，重新啟動
   return true;
 }
+function onLiveResult(e){
+  let interim = "";
+  for (let i = e.resultIndex; i < e.results.length; i++){
+    const r = e.results[i], text = r[0].transcript.trim();
+    if (!text) continue;
+    if (!r.isFinal){ interim += text; continue; }
+    const seq = ++liveSeq;
+    setSubs(text, ccMode === "zh" ? "" : "…");
+    if (ccMode !== "zh"){
+      getTranslator().then(t => withTimeout(t.translate(text), 6000).catch(() => t.remote ? Promise.reject() : online.translate(text))).then(en => {
+        if (seq === liveSeq && live) setSubs(text, en);
+        setCcStatus(liveStatusText());
+      }).catch(() => { if (seq === liveSeq && live) setSubs(text, "(translation unavailable)"); });
+    }
+  }
+  if (interim) setSubs(interim, "", true);
+}
 function isPlaying(){ try{ return playerReady && player.getPlayerState() === YT.PlayerState.PLAYING; }catch(e){ return false; } }
 function stopLive(){
   live = false; $("#liveBtn").classList.remove("on");
   if (rec){ rec.onend = null; recognizing(false); rec = null; }
+  closeMicWindow("live");
   setSubs("", ""); applyCc();
 }
 $("#liveBtn").onclick = async () => {
   if (live){ stopLive(); return; }
   if (!SR){ setCcStatus("This browser can’t do speech recognition. Please use Google Chrome or Microsoft Edge"); return; }
+  const turnOn = () => {
+    live = true; $("#liveBtn").classList.add("on");
+    if (ccMode === "off") ccMode = "both";
+    if (ccMode !== "zh") getTranslator().catch(() => {});
+    applyCc();
+  };
+  // 被嵌在其他網站、且外層網站不給麥克風 → 改開小視窗收音
+  if (frameBlocksMic() === true){
+    if (!openMicWindow("live")){ $("#ccStatus").innerHTML = micProblem("popup-blocked"); return; }
+    turnOn(); setCcStatus("🎙 Live subtitles are listening in the small window — keep it open (use speakers, not headphones)");
+    return;
+  }
   setCcStatus("Asking for the microphone…");
   const ok = await ensureMic();
-  if (ok !== "ok"){ $("#ccStatus").innerHTML = micProblem(ok); return; }
+  if (ok !== "ok"){
+    if (inFrame && (ok === "NotAllowedError" || ok === "SecurityError") && openMicWindow("live")){
+      turnOn(); setCcStatus("🎙 Live subtitles are listening in the small window — keep it open (use speakers, not headphones)"); return;
+    }
+    $("#ccStatus").innerHTML = micProblem(ok); return;
+  }
   if (!startLive()) return;
   live = true; $("#liveBtn").classList.add("on");
   if (ccMode === "off") ccMode = "both";
@@ -593,6 +613,7 @@ function renderStars(){
   $("#stars").textContent = Q.list.map((_, k) => k < Q.score ? "⭐" : "☆").join("");
 }
 function showQuestion(){
+  closeMicWindow("answer");
   const q = Q.list[Q.i];
   Q.tries = 0; Q.answered = false;
   $("#chat").innerHTML = "";
@@ -677,6 +698,45 @@ async function ensureMic(){
     return "ok";
   }catch(e){ return e && e.name || "error"; }
 }
+/* 外層網站有沒有允許麥克風：Chrome/Edge 可以直接查（true＝被擋，false＝允許，null＝不知道） */
+function frameBlocksMic(){
+  if (!inFrame) return false;
+  try{
+    const fp = document.permissionsPolicy || document.featurePolicy;
+    if (fp && fp.allowsFeature) return !fp.allowsFeature("microphone");
+  }catch(e){}
+  return null;
+}
+/* 另開小視窗收音（獨立視窗一定能跳出麥克風允許視窗），結果用 postMessage 傳回來 */
+const micWin = {answer:null, live:null};
+function openMicWindow(mode){
+  const w = 420, hgt = 380;
+  const left = Math.max(0, (screen.availWidth || 1200) - w - 40), top = 80;
+  const url = new URL("mic.html?mode=" + mode, location.href).href;
+  let win = null;
+  try{ win = window.open(url, "dsmic-" + mode, `popup=yes,width=${w},height=${hgt},left=${left},top=${top}`); }catch(e){}
+  micWin[mode] = win || null;
+  return !!win;
+}
+function closeMicWindow(mode){
+  const w = micWin[mode]; micWin[mode] = null;
+  if (w && !w.closed){ try{ w.postMessage({app:"daily-story", cmd:"close"}, location.origin); }catch(e){} try{ w.close(); }catch(e){} }
+}
+window.addEventListener("message", e => {
+  const d = e.data;
+  if (e.origin !== location.origin || !d || d.app !== "daily-story-mic") return;
+  if (d.mode === "answer"){
+    if (d.kind === "interim") $("#answerInput").value = d.text;
+    else if (d.kind === "final"){ $("#answerInput").value = d.text; if (!Q.answered) respond(d.text); }
+    else if (d.kind === "nospeech") bubble("bot", "我沒有聽到聲音，再按一次 🎤 說說看！");
+    else if (d.kind === "closed"){ micWin.answer = null; micIdle(); }
+  } else if (d.mode === "live"){
+    if (!live) return;
+    if (d.kind === "interim" || d.kind === "final")
+      onLiveResult({resultIndex:0, results:[Object.assign([{transcript:d.text}], {isFinal: d.kind === "final"})]});
+    else if (d.kind === "closed"){ micWin.live = null; stopLive(); }
+  }
+});
 const openTab = `<a href="${location.href.split("#")[0]}" target="_blank" rel="noopener">open this page in its own tab</a>`;
 function micProblem(code){
   switch(code){
@@ -692,6 +752,8 @@ function micProblem(code){
       return "The microphone only works on a secure (https) address. Please open https://chineseteachingtool.github.io/daily-story/";
     case "unsupported": case "service-not-allowed": case "language-not-supported": case "nosr":
       return "This browser can’t do Chinese speech recognition. Please use <b>Google Chrome</b> or <b>Microsoft Edge</b> (not an in-app browser), or just type your answer.";
+    case "popup-blocked":
+      return `This page is inside another website that blocks the microphone, and the browser blocked the small microphone window. Please allow pop-ups for this site, or ${openTab}.`;
     case "network":
       return "Speech recognition needs an internet connection. Please check the connection, or type your answer.";
     default:
@@ -707,15 +769,27 @@ function micIdle(){
 }
 $("#micBtn").onclick = async () => {
   if (ansRec){ try{ ansRec.stop(); }catch(e){} return; }
+  if (micWin.answer && !micWin.answer.closed){ closeMicWindow("answer"); micIdle(); return; }
   if (micBusy) return;
   if (Q.answered){ bubble("bot", "Tap <b>Next →</b> to go to the next question."); return; }
   if (!SR){ bubble("bot", micProblem("nosr")); return; }
+  // 被嵌在其他網站、且外層網站不給麥克風 → 改開小視窗收音
+  if (frameBlocksMic() === true){
+    if (openMicWindow("answer")){ $("#micBtn").classList.add("on"); $("#answerInput").placeholder = "🎤 Speak in the small window…"; }
+    else bubble("bot", micProblem("popup-blocked"));
+    return;
+  }
   micBusy = true;
   try{ speechSynthesis.cancel(); }catch(e){}
   $("#answerInput").placeholder = "Asking for the microphone…";
   const ok = await ensureMic();
   micBusy = false;
-  if (ok !== "ok"){ micIdle(); bubble("bot", micProblem(ok)); return; }
+  if (ok !== "ok"){
+    if (inFrame && (ok === "NotAllowedError" || ok === "SecurityError") && openMicWindow("answer")){
+      $("#micBtn").classList.add("on"); $("#answerInput").placeholder = "🎤 Speak in the small window…"; return;
+    }
+    micIdle(); bubble("bot", micProblem(ok)); return;
+  }
 
   const pausedLive = live && rec;
   if (pausedLive) recognizing(false);

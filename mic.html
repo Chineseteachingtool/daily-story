@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎤 Daily Chinese Story Time — Microphone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* This small window is opened when the story page is embedded in another website
+     that does not allow the microphone. A separate window can always ask for permission.
+     It listens in Chinese and sends the text back to the story page with postMessage. */
+  :root{--lv:#e0694c;--ink:#2b2622;--muted:#7a7068;--paper:#fbf6ec}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    font-family:"Noto Sans TC",system-ui,sans-serif;background:var(--paper);color:var(--ink);padding:20px;text-align:center}
+  .mic{width:96px;height:96px;border-radius:50%;border:0;font-size:44px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15);cursor:pointer}
+  .mic.on{background:#c0392b;animation:pulse 1s infinite}
+  @keyframes pulse{50%{transform:scale(1.08)}}
+  #status{font-size:16px;font-weight:500;max-width:360px}
+  #text{font-size:24px;min-height:36px;max-width:360px}
+  #hint{font-size:13px;color:var(--muted);max-width:360px}
+  button.close{border:0;background:#eee6d8;border-radius:10px;padding:8px 18px;font:inherit;cursor:pointer}
+</style>
+</head>
+<body>
+  <button class="mic" id="mic" title="Tap to speak">🎤</button>
+  <div id="status">Asking for the microphone…</div>
+  <div id="text"></div>
+  <div id="hint"></div>
+  <button class="close" id="close">Close</button>
+<script>
+const params = new URLSearchParams(location.search);
+const mode = params.get("mode") === "live" ? "live" : "answer";
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const $ = s => document.querySelector(s);
+let rec = null, running = false, closing = false;
+
+function send(kind, text){
+  try{ if (window.opener) window.opener.postMessage({app:"daily-story-mic", mode, kind, text}, location.origin); }catch(e){}
+}
+function status(t){ $("#status").innerHTML = t; }
+function finish(delay){
+  closing = true; running = false;
+  try{ rec && rec.stop(); }catch(e){}
+  send("closed", "");
+  setTimeout(() => window.close(), delay || 0);
+}
+
+async function askMic(){
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return "unsupported";
+  try{ const s = await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t => t.stop()); return "ok"; }
+  catch(e){ return e && e.name || "error"; }
+}
+const PROBLEM = {
+  NotAllowedError: "The microphone is blocked. Click the 🔒 icon on the left of the address bar → <b>Microphone → Allow</b>, then tap 🎤 again.",
+  NotFoundError: "No microphone was found. Please plug in or turn on a microphone.",
+  NotReadableError: "The microphone is being used by another app (Zoom, Teams, Meet…). Close it and tap 🎤 again.",
+  unsupported: "This browser can’t do Chinese speech recognition. Please use Google Chrome or Microsoft Edge.",
+  "not-allowed": "The microphone is blocked. Click the 🔒 icon on the left of the address bar → <b>Microphone → Allow</b>, then tap 🎤 again.",
+  "service-not-allowed": "This browser can’t do Chinese speech recognition. Please use Google Chrome or Microsoft Edge.",
+  "language-not-supported": "This browser can’t do Chinese speech recognition. Please use Google Chrome or Microsoft Edge.",
+  "network": "Speech recognition needs an internet connection.",
+  "audio-capture": "No microphone was found. Please plug in or turn on a microphone."
+};
+
+async function start(){
+  if (running) return;
+  if (!SR){ status(PROBLEM.unsupported); return; }
+  status("Asking for the microphone…");
+  const ok = await askMic();
+  if (ok !== "ok"){ status(PROBLEM[ok] || `The microphone didn’t start (${ok}).`); send("error", ok); return; }
+
+  rec = new SR();
+  rec.lang = "zh-TW"; rec.interimResults = true; rec.continuous = mode === "live";
+  let finalText = "";
+  rec.onstart = () => {
+    running = true; $("#mic").classList.add("on");
+    status(mode === "live" ? "🎙 Live subtitles are listening" : "🎤 Listening… speak in Chinese");
+    $("#hint").textContent = mode === "live"
+      ? "Keep this small window open while the video plays (use speakers, not headphones). Close it to stop."
+      : "Speak your answer. This window closes by itself when you finish.";
+  };
+  rec.onresult = e => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++){
+      const r = e.results[i], t = r[0].transcript.trim();
+      if (!t) continue;
+      if (r.isFinal){ finalText = t; $("#text").textContent = t; send("final", t); }
+      else interim += t;
+    }
+    if (interim){ $("#text").textContent = interim; send("interim", interim); }
+  };
+  rec.onerror = e => {
+    if (e.error === "no-speech"){ status("I didn’t hear anything — tap 🎤 and try again."); send("nospeech", ""); return; }
+    if (e.error === "aborted") return;
+    status(PROBLEM[e.error] || `Speech recognition error (${e.error}).`); send("error", e.error);
+  };
+  rec.onend = () => {
+    $("#mic").classList.remove("on"); running = false;
+    if (closing) return;
+    if (mode === "live"){ try{ rec.start(); }catch(e){} return; }   // keep listening for live subtitles
+    if (finalText){ status("✓ Got it!"); finish(700); }
+  };
+  try{ rec.start(); }catch(e){ status(`The microphone didn’t start (${e.name}).`); }
+}
+
+$("#mic").onclick = () => { if (running){ try{ rec.stop(); }catch(e){} } else start(); };
+$("#close").onclick = () => finish(0);
+window.addEventListener("beforeunload", () => { if (!closing) send("closed", ""); });
+window.addEventListener("message", e => {
+  if (e.origin !== location.origin || !e.data || e.data.app !== "daily-story") return;
+  if (e.data.cmd === "close") finish(0);
+});
+if (!window.opener) $("#hint").textContent = "Please open this from the story page.";
+start();
+</script>
+</body>
+</html>
