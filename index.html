@@ -476,7 +476,7 @@ function startLive(){
     if (interim) setSubs(interim, "", true);
   };
   rec.onerror = e => {
-    if (e.error === "not-allowed" || e.error === "service-not-allowed"){ stopLive(); setCcStatus("Microphone permission denied. Click the icon left of the address bar, allow the microphone, and try again"); }
+    if (["not-allowed","service-not-allowed","language-not-supported"].includes(e.error)){ stopLive(); $("#ccStatus").innerHTML = micProblem(e.error); }
     else if (e.error === "network") setCcStatus("Speech recognition needs an internet connection");
     else if (e.error === "audio-capture") { stopLive(); setCcStatus("No microphone found"); }
   };
@@ -489,8 +489,12 @@ function stopLive(){
   if (rec){ rec.onend = null; recognizing(false); rec = null; }
   setSubs("", ""); applyCc();
 }
-$("#liveBtn").onclick = () => {
+$("#liveBtn").onclick = async () => {
   if (live){ stopLive(); return; }
+  if (!SR){ setCcStatus("This browser can’t do speech recognition. Please use Google Chrome or Microsoft Edge"); return; }
+  setCcStatus("Asking for the microphone…");
+  const ok = await ensureMic();
+  if (ok !== "ok"){ $("#ccStatus").innerHTML = micProblem(ok); return; }
   if (!startLive()) return;
   live = true; $("#liveBtn").classList.add("on");
   if (ccMode === "off") ccMode = "both";
@@ -660,34 +664,83 @@ $("#voiceSel").onchange = () => { store.set("voice", $("#voiceSel").value); spea
 $("#voiceTry").onclick = () => speak("小朋友好，我們一起來回答問題吧！", true);
 $("#quizBtn").onclick = openQuiz;
 
+/* ===== 麥克風權限 =====
+   先用 getUserMedia 主動要權限：瀏覽器一定會跳出「允許使用麥克風」視窗，
+   失敗時也能知道確切原因（被封鎖、沒有麥克風、被其他程式占用、網頁被嵌在別的網站裡）。 */
+const inFrame = (() => { try{ return window.self !== window.top; }catch(e){ return true; } })();
+async function ensureMic(){
+  if (!window.isSecureContext) return "insecure";
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return "unsupported";
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({audio:true});
+    s.getTracks().forEach(t => t.stop());
+    return "ok";
+  }catch(e){ return e && e.name || "error"; }
+}
+const openTab = `<a href="${location.href.split("#")[0]}" target="_blank" rel="noopener">open this page in its own tab</a>`;
+function micProblem(code){
+  switch(code){
+    case "NotAllowedError": case "SecurityError": case "not-allowed":
+      return inFrame
+        ? `The microphone is blocked because this page is shown inside another website. Please ${openTab} and tap 🎤 again.`
+        : "The microphone is blocked. Click the 🔒 icon on the left of the address bar → <b>Microphone → Allow</b>, then reload the page and tap 🎤 again.";
+    case "NotFoundError": case "audio-capture": case "OverconstrainedError":
+      return "No microphone was found. Please plug in or turn on a microphone, then try again.";
+    case "NotReadableError": case "AbortError":
+      return "The microphone is being used by another app (for example Zoom, Teams or Meet). Close it and try again.";
+    case "insecure":
+      return "The microphone only works on a secure (https) address. Please open https://chineseteachingtool.github.io/daily-story/";
+    case "unsupported": case "service-not-allowed": case "language-not-supported": case "nosr":
+      return "This browser can’t do Chinese speech recognition. Please use <b>Google Chrome</b> or <b>Microsoft Edge</b> (not an in-app browser), or just type your answer.";
+    case "network":
+      return "Speech recognition needs an internet connection. Please check the connection, or type your answer.";
+    default:
+      return `The microphone didn’t start (${esc(code)}). You can type your answer instead.`;
+  }
+}
+
 /* 語音回答：按一下開始聽，說完自動送出 */
-let ansRec = null;
-$("#micBtn").onclick = () => {
+let ansRec = null, micBusy = false;
+function micIdle(){
+  $("#micBtn").classList.remove("on");
+  $("#answerInput").placeholder = "Type here, or tap 🎤 to speak (Chinese)";
+}
+$("#micBtn").onclick = async () => {
   if (ansRec){ try{ ansRec.stop(); }catch(e){} return; }
-  if (!SR){ bubble("bot", "Voice answers need Chrome or Edge — or just type your answer!"); return; }
-  if (Q.answered) return;
+  if (micBusy) return;
+  if (Q.answered){ bubble("bot", "Tap <b>Next →</b> to go to the next question."); return; }
+  if (!SR){ bubble("bot", micProblem("nosr")); return; }
+  micBusy = true;
   try{ speechSynthesis.cancel(); }catch(e){}
+  $("#answerInput").placeholder = "Asking for the microphone…";
+  const ok = await ensureMic();
+  micBusy = false;
+  if (ok !== "ok"){ micIdle(); bubble("bot", micProblem(ok)); return; }
+
   const pausedLive = live && rec;
   if (pausedLive) recognizing(false);
   ansRec = new SR();
-  ansRec.lang = "zh-TW"; ansRec.interimResults = true; ansRec.continuous = false;
-  let finalText = "";
+  ansRec.lang = "zh-TW"; ansRec.interimResults = true; ansRec.continuous = false; ansRec.maxAlternatives = 1;
+  let finalText = "", failed = false;
+  ansRec.onstart = () => { $("#answerInput").placeholder = "🎤 Listening… speak in Chinese"; };
   ansRec.onresult = e => {
     let t = ""; for (let i = 0; i < e.results.length; i++){ t += e.results[i][0].transcript; if (e.results[i].isFinal) finalText = t; }
     $("#answerInput").value = t;
   };
   ansRec.onerror = e => {
-    if (e.error === "not-allowed") bubble("bot", "Please allow the microphone to answer by voice.");
-    else if (e.error === "no-speech") bubble("bot", "I didn’t hear anything — tap 🎤 and try again!");
+    failed = true;
+    if (e.error === "no-speech") bubble("bot", "我沒有聽到聲音，再按一次 🎤 說說看！");
+    else if (e.error !== "aborted") bubble("bot", micProblem(e.error));
   };
   ansRec.onend = () => {
-    $("#micBtn").classList.remove("on"); ansRec = null;
+    micIdle(); ansRec = null;
     const text = finalText || $("#answerInput").value;
-    if (text.trim()) respond(text);
+    if (text.trim() && !failed) respond(text);
     if (pausedLive && isPlaying()) recognizing(true);
   };
   $("#micBtn").classList.add("on");
-  try{ ansRec.start(); }catch(e){ $("#micBtn").classList.remove("on"); ansRec = null; }
+  try{ ansRec.start(); }
+  catch(err){ ansRec = null; micIdle(); bubble("bot", micProblem(err && err.name || "error")); }
 };
 
 /* ===== YouTube 播放器 =====
